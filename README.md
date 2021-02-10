@@ -19,7 +19,7 @@ Also, you can run tests (if exists and You need to install python)
     make test
 
 
-For clean use:
+For cleanup use command:
 
     make clean
 
