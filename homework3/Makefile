@@ -1,0 +1,21 @@
+CC=gcc
+CFLAGS=-c -Wall -Wextra -Wpedantic -std=c11
+
+all: homework
+
+homework: homework.o encode.o
+	$(CC) -o homework encode.o homework.o
+
+homework.o: homework.c
+	$(CC) $(CFLAGS) homework.c
+
+encode.o: encode.c encode.h
+	$(CC) $(CFLAGS) encode.c
+
+#test:
+#	python3 -m test_homework
+
+clean:
+	rm *.o
+	rm -rf __pycache__
+	rm homework

@@ -9,10 +9,16 @@ All homeworks can be found in directories that name starts with "homework" prefi
 
 Build Homeworks
 ----------------
-In order to build homework you can execute following commands
+In order to build homework for lesson with some number you can execute following commands (for examle for third lesson)
 
-    cd homework1
+    cd homework3
     make
+
+
+After that, you can run homework for execution:
+
+    ./homework
+
 
 Also, you can run tests (if exists and You need to install python)
 
