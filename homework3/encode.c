@@ -84,9 +84,9 @@ static utf8 *utf[] = {
     //      00011111 11000000
     &(utf8){0x1f,    0xc0,  0x0080,   0x07ff},  // 2 bytes need
     //      00001111 11100000
-	&(utf8){0x0f,    0xe0,  0x0800,   0xffff},  // 3 bytes need
+    &(utf8){0x0f,    0xe0,  0x0800,   0xffff},  // 3 bytes need
     //      00000111 11110000
-	&(utf8){0x07,    0xf0, 0x10000, 0x10ffff},  // 4 bytes need
+    &(utf8){0x07,    0xf0, 0x10000, 0x10ffff},  // 4 bytes need
     NULL
 };
 
