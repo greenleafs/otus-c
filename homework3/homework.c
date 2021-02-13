@@ -31,7 +31,6 @@ static struct option _Options[] = {
     { 0, 0, 0, 0 }
 };
 
-
 struct _givenOption {
     char *input_file;
     char *output_file;
@@ -101,5 +100,32 @@ int main(int argc, char *argv[])
         exit( EXIT_FAILURE );
     }
 
-    exit( EXIT_SUCCESS );
+    FILE *in = stdin;
+    if( gopt.input_file ) {
+        in = fopen( gopt.input_file, "rb" );
+        if( !in ) {
+            perror( gopt.input_file );
+            exit( EXIT_FAILURE );
+        }
+    }
+
+    FILE *out = stdout;
+    if( gopt.output_file ) {
+        out = fopen( gopt.output_file, "wb" );
+        if( !out ) {
+            perror( gopt.output_file );
+            fclose( in );
+            exit( EXIT_FAILURE );
+        }
+    }
+
+    int err = encode(in, out, enc);
+
+    fclose( in );
+    fclose( out );
+
+    if( !err )
+        exit( EXIT_SUCCESS );
+    else
+        exit( EXIT_FAILURE );
 }
