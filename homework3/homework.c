@@ -13,7 +13,7 @@ void print_usage(char *name)
         "\nUsage: %s -f from-encoding [-i input file] [-o output file]"
         "\n\t-f, --from-code=from-encoding - Use from-encoding for input characters."
         "\n\t-i, --input-file=file - Input file or stdin if not specified."
-        "\n\t-o, --output-file=file - Output file or stdot if not specified."
+        "\n\t-o, --output-file=file - Output file or stdout if not specified."
         "\n\t-l, --list - List of supported encodings"
         "\n\t-h, --help - This help."
         "\n",
