@@ -101,11 +101,11 @@ class TestSimpleHomework3(unittest.TestCase):
         waiting_for_result = (
             'Convert text from some character encoding to utf-8'
             'Usage: ./homework -f from-encoding [-i input file] [-o output file]'  # noqa: E501
-	        '\t-f, --from-code=from-encoding - Use from-encoding for input characters.'  # noqa: E501
-	        '\t-i, --input-file=file - Input file or stdin if not specified.'
-	        '\t-o, --output-file=file - Output file or stdout if not specified.'
-	        '\t-l, --list - List of supported encodings'
-	        '\t-h, --help - This help.'
+            '\t-f, --from-code=from-encoding - Use from-encoding for input characters.'  # noqa: E501
+            '\t-i, --input-file=file - Input file or stdin if not specified.'
+            '\t-o, --output-file=file - Output file or stdout if not specified.'
+            '\t-l, --list - List of supported encodings'
+            '\t-h, --help - This help.'
 
         )
         result = ''.join(out.split('\n'))
