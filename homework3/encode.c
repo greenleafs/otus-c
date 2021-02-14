@@ -118,7 +118,7 @@ int encode(FILE *in, FILE *out, encoding *enc)
 
     read_buff = malloc( READ_BLOCK_SIZE );
     if( !read_buff ) {
-        result = -1;
+        result = 1;
         goto cleanup;
     }
 
@@ -130,7 +130,7 @@ int encode(FILE *in, FILE *out, encoding *enc)
             in
         );
         if( ferror(in)) {
-            result = -1;
+            result = 1;
             perror( "Read error" );
             goto cleanup;
         }
@@ -165,7 +165,7 @@ int encode(FILE *in, FILE *out, encoding *enc)
             encoded[ encoded_len ] = '\0';
             fwrite( encoded, 1, encoded_len, out );
             if( ferror(out)) {
-                result = -1;
+                result = 1;
                 perror( "Write error" );
                 goto cleanup;
             }
