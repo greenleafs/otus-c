@@ -127,7 +127,7 @@ class TestSimpleHomework3(unittest.TestCase):
         self.assertEqual(waiting_for_result, result)
 
     @unittest.skipUnless(is_homework_builded(), skipMessage)
-    def test_encoding_otion_not_specfied(self):
+    def test_encoding_option_not_specfied(self):
         out, _, ret_code = self.run_homework('./homework')
         self.assertEqual(ret_code, 1)
         self.assertIn('Option is required -- \'f\'', out)
