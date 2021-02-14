@@ -12,8 +12,8 @@ homework.o: homework.c
 encode.o: encode.c encode.h
 	$(CC) $(CFLAGS) encode.c
 
-#test:
-#	python3 -m test_homework
+test:
+	python3 -m unittest -v test
 
 clean:
 	rm *.o
