@@ -7,7 +7,7 @@ import unittest
 skipMessage = "Nothing to test. Run 'make' before!"
 
 
-def is_homework_builded():
+def is_homework_built():
     return os.path.exists('homework')
 
 
@@ -28,7 +28,7 @@ class TestSimpleHomework3(unittest.TestCase):
         out, err = process.communicate()
         return out.decode('utf-8'), err.decode('utf-8'), process.returncode
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_from_cp1251(self):
         text = (
             b'\xD0\xEE\xEB\xFC\x20\xE8\x20\xE7\xED\xE0\xF7\xE5'
@@ -45,7 +45,7 @@ class TestSimpleHomework3(unittest.TestCase):
                          f'Return code is not zero!\nout:\n{out}\nerr:\n{err}')
         self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_from_koi8r(self):
         text = (
             b'\xF2\xCF\xCC\xD8\x20\xC9\x20\xDA\xCE\xC1\xDE\xC5\xCE\xC9\xC5'
@@ -62,7 +62,7 @@ class TestSimpleHomework3(unittest.TestCase):
                          f'Return code is not zero!\nout:\n{out}\nerr:\n{err}')
         self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_from_iso8859_5(self):
         text = (
             b'\xC0\xDE\xDB\xEC\x20\xD8\x20\xD7\xDD\xD0\xE7\xD5\xDD\xD8\xD5'
@@ -79,7 +79,7 @@ class TestSimpleHomework3(unittest.TestCase):
                          f'Return code is not zero!\nout:\n{out}\nerr:\n{err}')
         self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_supported_encodings_list(self):
         out, _, ret_code = self.run_homework('./homework -l')
         self.assertEqual(ret_code, 0)
@@ -93,7 +93,7 @@ class TestSimpleHomework3(unittest.TestCase):
         result = ''.join(out.split('\n'))
         self.assertEqual(waiting_for_result, result)
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_help_message(self):
         out, _, ret_code = self.run_homework('./homework -h')
         self.assertEqual(ret_code, 0)
@@ -111,7 +111,7 @@ class TestSimpleHomework3(unittest.TestCase):
         result = ''.join(out.split('\n'))
         self.assertEqual(waiting_for_result, result)
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_wrong_encoding(self):
         out, _, ret_code = self.run_homework('./homework -f cp866')
         self.assertEqual(ret_code, 1)
@@ -126,18 +126,18 @@ class TestSimpleHomework3(unittest.TestCase):
         result = ''.join(out.split('\n'))
         self.assertEqual(waiting_for_result, result)
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_encoding_option_not_specfied(self):
         out, _, ret_code = self.run_homework('./homework')
         self.assertEqual(ret_code, 1)
         self.assertIn('Option is required -- \'f\'', out)
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_wrong_inputfile(self):
         out, _, ret_code = self.run_homework('./homework -f cp1251 -i ddd')
         self.assertEqual(ret_code, 1)
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_fromfile(self):
         # encoding cp1251
         text = (
@@ -155,7 +155,7 @@ class TestSimpleHomework3(unittest.TestCase):
             self.assertEqual(ret_code, 0)
             self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_tofile(self):
         # encoding cp1251
         text = (
@@ -172,7 +172,7 @@ class TestSimpleHomework3(unittest.TestCase):
             out = outf.read().decode('utf-8')
             self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
-    @unittest.skipUnless(is_homework_builded(), skipMessage)
+    @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_fromfile_tofile(self):
         # encoding cp1251
         text = (

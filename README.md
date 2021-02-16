@@ -1,5 +1,5 @@
 
-C prohramming language course from OTUS.
+C programming language course from OTUS.
 
 
 Homeworks
@@ -20,7 +20,7 @@ After that, you can run homework for execution:
     ./homework
 
 
-Also, you can run tests (if exists and You need to install python)
+Also, you can run tests (if exists and You need to install python3)
 
     make test
 
