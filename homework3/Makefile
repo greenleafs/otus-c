@@ -16,6 +16,5 @@ test:
 	python3 -m unittest -v test
 
 clean:
-	rm *.o
+	rm -f *.o homework
 	rm -rf __pycache__
-	rm homework
