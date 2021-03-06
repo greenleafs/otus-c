@@ -41,6 +41,7 @@ class Homework4TestCase(unittest.TestCase):
         out, _, ret_code = self.run_homework(f'./homework {file}')
         self.assertEqual(ret_code, 0)
         self.assertIn('Files: 185', out)
+        self.assertIn('jpeg-9d/maktjpeg.st', out)
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_not_exist_file(self):
