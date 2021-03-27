@@ -106,7 +106,6 @@ class TestSimpleHomework3(unittest.TestCase):
             '\t-o, --output-file=file - Output file or stdout if not specified.'
             '\t-l, --list - List of supported encodings'
             '\t-h, --help - This help.'
-
         )
         result = ''.join(out.split('\n'))
         self.assertEqual(waiting_for_result, result)

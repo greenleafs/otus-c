@@ -23,15 +23,16 @@ void print_usage(char *name)
 
 
 static struct option _Options[] = {
-    { "help", no_argument, NULL, 'h' },
-    { "list", no_argument, NULL, 'l' },
-    { "from-code", required_argument, NULL, 'f' },
-    { "input", required_argument, NULL, 'i' },
-    { "output", required_argument, NULL, 'o' },
-    { 0, 0, 0, 0 }
+    {"help", no_argument, NULL, 'h'},
+    {"list", no_argument, NULL, 'l'},
+    {"from-code", required_argument, NULL, 'f'},
+    {"input", required_argument, NULL, 'i'},
+    {"output", required_argument, NULL, 'o'},
+    {0}
 };
 
-struct _givenOption {
+struct _givenOption
+{
     char *input_file;
     char *output_file;
     char *from_enc;
@@ -43,89 +44,94 @@ struct _givenOption {
 int main(int argc, char *argv[])
 {
     int opt, opt_index = 0;
-    struct _givenOption gopt = {
-        NULL, NULL, NULL, false, false
-    };
+    struct _givenOption gopt = {0};
 
-    while(( opt = getopt_long( argc, argv, "hlf:i:o:", _Options, &opt_index )) != -1 )
+    while ((opt = getopt_long(argc, argv, "hlf:i:o:", _Options, &opt_index)) != -1 )
     {
-        switch ( opt )
+        switch (opt)
         {
         case 'f':
             gopt.from_enc = optarg;
             break;
-
         case 'i':
             gopt.input_file = optarg;
              break;
-
         case 'o':
             gopt.output_file = optarg;
             break;
-
         case 'l':
             gopt.list = true;
             break;
-
         case 'h':
             gopt.help = true;
             break;
-
         default:
-            print_usage( argv[0] );
-            exit( EXIT_FAILURE );
+            print_usage(argv[0]);
+            exit(EXIT_FAILURE);
         }
     }
 
-    if( gopt.help ) {
-        print_usage( argv[0] );
-        exit( EXIT_SUCCESS );
+    if (gopt.help)
+    {
+        print_usage(argv[0]);
+        exit(EXIT_SUCCESS);
     }
 
-    if( gopt.list ) {
+    if (gopt.list)
+    {
         print_supported_encodings();
-        exit( EXIT_SUCCESS );
+        exit(EXIT_SUCCESS);
     }
 
-    if( !gopt.from_enc ) {
+    if (!gopt.from_enc)
+    {
         printf("Option is required -- 'f'\n");
-        print_usage( argv[0] );
-        exit( EXIT_FAILURE );
+        print_usage(argv[0]);
+        exit(EXIT_FAILURE);
     }
 
-    encoding *enc = get_encoding_data( gopt.from_enc );
-    if( !enc ) {
+    encoding_t *enc = get_encoding_data(gopt.from_enc);
+    if (!enc)
+    {
         printf("Unsupported encoding -- %s\n", gopt.from_enc);
         print_supported_encodings();
-        exit( EXIT_FAILURE );
+        exit(EXIT_FAILURE);
     }
 
     FILE *in = stdin;
-    if( gopt.input_file ) {
-        in = fopen( gopt.input_file, "rb" );
-        if( !in ) {
-            perror( gopt.input_file );
-            exit( EXIT_FAILURE );
+    if (gopt.input_file)
+    {
+        in = fopen(gopt.input_file, "rb");
+        if (!in)
+        {
+            perror(gopt.input_file);
+            exit(EXIT_FAILURE);
         }
     }
 
     FILE *out = stdout;
-    if( gopt.output_file ) {
-        out = fopen( gopt.output_file, "wb" );
-        if( !out ) {
-            perror( gopt.output_file );
-            fclose( in );
-            exit( EXIT_FAILURE );
+    if (gopt.output_file)
+    {
+        out = fopen(gopt.output_file, "wb");
+        if (!out)
+        {
+            perror(gopt.output_file);
+            fclose(in);
+            exit(EXIT_FAILURE);
         }
     }
 
     int err = encode(in, out, enc);
 
-    fclose( in );
-    fclose( out );
+    fclose(in);
+    fclose(out);
 
-    if( !err )
-        exit( EXIT_SUCCESS );
+    if (!err)
+    {
+        exit(EXIT_SUCCESS);
+    }
     else
-        exit( EXIT_FAILURE );
+    {
+        exit(EXIT_FAILURE);
+    }
 }

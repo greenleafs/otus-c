@@ -40,54 +40,59 @@ static uint32_t iso_8859_5[] = {
     0x2116, 0x0451, 0x0452, 0x0453, 0x0454, 0x0455, 0x0456, 0x0457, 0x0458, 0x0459, 0x045a, 0x045b, 0x045c, 0xa7,   0x045e, 0x045f
 };
 
-typedef struct _encoding
+typedef struct encoding_
 {
     char *encoding_name;
     uint32_t *encoding_data;
-} encoding;
+} encoding_t;
 
-static encoding *supported_encodings[] = {
-    &(encoding){"koi8-r", koi8_r},
-    &(encoding){"cp1251", cp1251},
-    &(encoding){"iso-8859-5", iso_8859_5},
-    NULL
+static encoding_t supported_encodings[] = {
+    {"koi8-r", koi8_r},
+    {"cp1251", cp1251},
+    {"iso-8859-5", iso_8859_5},
+    {0}
 };
 
 void print_supported_encodings(void)
 {
     printf("Supported encodings:\n");
-    for(encoding **e = supported_encodings; *e; ++e ) {
-        printf("\t%s\n", (*e)->encoding_name);
+    for (encoding_t *e = supported_encodings; e->encoding_name; ++e)
+    {
+        printf("\t%s\n", e->encoding_name);
     }
 }
 
-encoding *get_encoding_data(char *encoding_name)
+encoding_t* get_encoding_data(char *encoding_name)
 {
-    for( encoding **e = supported_encodings; *e; ++e ) {
-        if( !strcmp( encoding_name, (*e)->encoding_name ))
-            return *e;
+    for (encoding_t *e = supported_encodings; e->encoding_name; ++e)
+    {
+        if (!strcmp(encoding_name, e->encoding_name))
+        {
+            return e;
+        }
     }
     return NULL;
 }
 
 
-typedef struct _utf8 {
-    unsigned char mask;
-    unsigned char start;
+typedef struct utf8_
+{
+    uint8_t mask;
+    uint8_t start;
     uint32_t start_range;
     uint32_t end_range;
-} utf8;
+} utf8_t;
 
-static utf8 *utf[] = {
-    //      01111111 00000000
-    &(utf8){0x7f,    0x00,  0x0000,   0x007f},  // 1 byte  needs
-    //      00011111 11000000
-    &(utf8){0x1f,    0xc0,  0x0080,   0x07ff},  // 2 bytes need
-    //      00001111 11100000
-    &(utf8){0x0f,    0xe0,  0x0800,   0xffff},  // 3 bytes need
-    //      00000111 11110000
-    &(utf8){0x07,    0xf0, 0x10000, 0x10ffff},  // 4 bytes need
-    NULL
+static utf8_t utf[] = {
+  // 01111111 00000000
+    {0x7f,    0x00,  0x0000,   0x007f},  // 1 byte  needs
+  // 00011111 11000000
+    {0x1f,    0xc0,  0x0080,   0x07ff},  // 2 bytes need
+  // 00001111 11100000
+    {0x0f,    0xe0,  0x0800,   0xffff},  // 3 bytes need
+  // 00000111 11110000
+    {0x07,    0xf0, 0x10000, 0x10ffff},  // 4 bytes need
+    {0}
 };
 
 #define BASE_MASK  0x3f  // 00111111
@@ -101,72 +106,84 @@ static utf8 *utf[] = {
 static size_t bytes_required(uint32_t cp)
 {
     int number = 1;
-    for( utf8 **u = utf; *u; ++u ) {
-        if((cp >= (*u)->start_range) && (cp <= (*u)->end_range))
+    for (utf8_t *u = utf; u->mask; ++u)
+    {
+        if ((cp >= u->start_range) && (cp <= u->end_range))
+        {
             return number;
+        }
         number++;
     }
-
     return 0;
 }
 
 #define READ_BLOCK_SIZE 128*1024
-int encode(FILE *in, FILE *out, encoding *enc)
+int encode(FILE *in, FILE *out, encoding_t *enc)
 {
     int result = 0;
     char *read_buff;
 
-    read_buff = malloc( READ_BLOCK_SIZE );
-    if( !read_buff ) {
+    read_buff = malloc(READ_BLOCK_SIZE);
+    if (!read_buff)
+    {
         result = 1;
         goto cleanup;
     }
 
-    while( !feof(in) ) {
+    while (!feof(in))
+    {
         size_t readed = fread(
             read_buff,
             sizeof(unsigned char),
             READ_BLOCK_SIZE,
             in
         );
-        if( ferror(in)) {
+        if (ferror(in))
+        {
             result = 1;
-            perror( "Read error" );
+            perror("Read error");
             goto cleanup;
         }
 
-        unsigned char byte_to_encode;
+        uint8_t byte_to_encode;
         uint32_t cp;
         size_t encoded_len;
-        unsigned char encoded[ sizeof(utf)/sizeof(utf8*) ];
+        unsigned char encoded[sizeof(utf)/sizeof(utf8_t)];
 
-        for( size_t i = 0; i < readed; i++ ) {
-            byte_to_encode = read_buff[ i ];
-            if( byte_to_encode < BASE_START )
+        for (size_t i = 0; i < readed; i++)
+        {
+            byte_to_encode = read_buff[i];
+            if (byte_to_encode < BASE_START)
+            {
                 cp = byte_to_encode;
+            }
             else
-                cp = enc->encoding_data[ byte_to_encode - BASE_START ];
+            {
+                cp = enc->encoding_data[byte_to_encode - BASE_START];
+            }
 
             encoded_len = bytes_required( cp );
-            if( !encoded_len ){
-                encoded_len = bytes_required( CHANGE_SYMBOL );
+            if (!encoded_len)
+            {
+                encoded_len = bytes_required(CHANGE_SYMBOL);
             }
 
             int shift = BASE_BITS * (encoded_len - 1);
-            encoded[ 0 ] = ( cp >> shift & utf[ encoded_len - 1 ]->mask ) |
-                           utf[ encoded_len - 1 ]->start;
+            encoded[0] = (cp >> shift & utf[encoded_len - 1].mask) |
+                          utf[encoded_len - 1].start;
 
             shift -= BASE_BITS;
-            for( size_t i = 1; i < encoded_len; ++i ) {
-                encoded[ i ] = ( cp >> shift & BASE_MASK ) | BASE_START;
+            for (size_t i = 1; i < encoded_len; ++i)
+            {
+                encoded[i] = (cp >> shift & BASE_MASK) | BASE_START;
                 shift -= BASE_BITS;
             }
 
-            encoded[ encoded_len ] = '\0';
-            fwrite( encoded, 1, encoded_len, out );
-            if( ferror(out)) {
+            fwrite(encoded, 1, encoded_len, out);
+            if (ferror(out))
+            {
                 result = 1;
-                perror( "Write error" );
+                perror("Write error");
                 goto cleanup;
             }
         }
@@ -176,4 +193,3 @@ cleanup:
     free(read_buff);
     return result;
 }
-
