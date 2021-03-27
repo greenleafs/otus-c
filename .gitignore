@@ -1,4 +1,5 @@
 *.o
 __pycache__
 .vscode
+.idea
 homework
