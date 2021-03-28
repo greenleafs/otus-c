@@ -41,8 +41,10 @@ class TestSimpleHomework3(unittest.TestCase):
             to_stdin_bytes=text
         )
 
-        self.assertEqual(ret_code, 0,
-                         f'Return code is not zero!\nout:\n{out}\nerr:\n{err}')
+        self.assertEqual(
+            ret_code, 0,
+            f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+        )
         self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
@@ -58,8 +60,10 @@ class TestSimpleHomework3(unittest.TestCase):
             to_stdin_bytes=text
         )
 
-        self.assertEqual(ret_code, 0,
-                         f'Return code is not zero!\nout:\n{out}\nerr:\n{err}')
+        self.assertEqual(
+            ret_code, 0,
+            f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+        )
         self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
@@ -75,14 +79,19 @@ class TestSimpleHomework3(unittest.TestCase):
             to_stdin_bytes=text
         )
 
-        self.assertEqual(ret_code, 0,
-                         f'Return code is not zero!\nout:\n{out}\nerr:\n{err}')
+        self.assertEqual(
+            ret_code, 0,
+            f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+        )
         self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_supported_encodings_list(self):
-        out, _, ret_code = self.run_homework('./homework -l')
-        self.assertEqual(ret_code, 0)
+        out, err, ret_code = self.run_homework('./homework -l')
+        self.assertEqual(
+            ret_code, 0,
+            f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+        )
 
         waiting_for_result = (
             'Supported encodings:'
@@ -95,8 +104,11 @@ class TestSimpleHomework3(unittest.TestCase):
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_help_message(self):
-        out, _, ret_code = self.run_homework('./homework -h')
-        self.assertEqual(ret_code, 0)
+        out, err, ret_code = self.run_homework('./homework -h')
+        self.assertEqual(
+            ret_code, 0,
+            f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+        )
 
         waiting_for_result = (
             'Convert text from some character encoding to utf-8'
@@ -148,10 +160,13 @@ class TestSimpleHomework3(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as inf:
             inf.write(text)
             inf.flush()
-            out, _, ret_code = self.run_homework(
+            out, err, ret_code = self.run_homework(
                 f'./homework -f cp1251 -i {inf.name}'
             )
-            self.assertEqual(ret_code, 0)
+            self.assertEqual(
+                ret_code, 0,
+                f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+            )
             self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
@@ -163,11 +178,14 @@ class TestSimpleHomework3(unittest.TestCase):
             b'\xE8\xF5\xEE\xEA\xF3\xEB\xFC\xF2\xF3\xF0\xFB'
         )
         with tempfile.NamedTemporaryFile(mode='rb') as outf:
-            _, _, ret_code = self.run_homework(
+            out, err, ret_code = self.run_homework(
                 f'./homework -f cp1251 -o {outf.name}',
                 to_stdin_bytes=text
             )
-            self.assertEqual(ret_code, 0)
+            self.assertEqual(
+                ret_code, 0,
+                f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+            )
             out = outf.read().decode('utf-8')
             self.assertEqual(out, 'Роль и значение чаньской психокультуры')
 
@@ -183,9 +201,12 @@ class TestSimpleHomework3(unittest.TestCase):
             inf.write(text)
             inf.flush()
             with tempfile.NamedTemporaryFile(mode='rb') as outf:
-                _, _, ret_code = self.run_homework(
+                out, err, ret_code = self.run_homework(
                     f'./homework -f cp1251 -i {inf.name} -o {outf.name}',
                 )
-                self.assertEqual(ret_code, 0)
+                self.assertEqual(
+                    ret_code, 0,
+                    f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+                )
                 out = outf.read().decode('utf-8')
                 self.assertEqual(out, 'Роль и значение чаньской психокультуры')
