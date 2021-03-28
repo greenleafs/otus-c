@@ -37,7 +37,8 @@ typedef struct _ecdr
 
 #define CDFH_SIGNATURE 0x02014B50
 #define CDFH_SIZE 46
-typedef struct _cdfh {
+typedef struct _cdfh
+{
     // 0x02014B50 -> 50 4B 01 02 (LE)
     uint32_t signature;
     // Version
@@ -74,7 +75,8 @@ typedef struct _cdfh {
     uint32_t lfh_offset;
 } cdfh_t;
 
-typedef struct _find_result {
+typedef struct _find_result
+{
     size_t offset;
     int8_t result;
 } find_result_t;
@@ -82,12 +84,13 @@ typedef struct _find_result {
 
 static find_result_t _find_frame(const char *buff, size_t buff_size, uint32_t val)
 {
-    find_result_t res = { 0, 0 };
+    find_result_t res = {0};
 
     const char *end_buffer = buff + buff_size;
     const char *q = end_buffer - sizeof(val);
-    while ( q >= buff ) {
-        if( *((uint32_t*)q) == val ){
+    while (q >= buff)
+    {
+        if (*((uint32_t*)q) == val){
             res.offset = end_buffer - q;
             res.result = 1;
             return res;
@@ -101,12 +104,15 @@ static find_result_t _find_frame(const char *buff, size_t buff_size, uint32_t va
 static bool find_ecdr_offset(FILE *f, size_t *offset)
 {
     // offset pointer defence
-    if( !offset )
+    if (!offset)
+    {
         return false;
+    }
 
     // get memory for buffer
-    char *buff = (char *) malloc( BUFFER_SIZE );
-    if( !buff ) {
+    char *buff = (char *) malloc(BUFFER_SIZE);
+    if (!buff)
+    {
         perror( "ecdr_offset" );
         return false;
     }
@@ -115,35 +121,38 @@ static bool find_ecdr_offset(FILE *f, size_t *offset)
 
     // set file position (from end)
     // ignore fseek error
-    fseek( f, 0 - BUFFER_SIZE, SEEK_END );
+    fseek(f, 0 - BUFFER_SIZE, SEEK_END);
 
     // read data from file
-    size_t readed = fread( buff, 1, BUFFER_SIZE, f );
-    if( ferror( f )) {
-        perror( "read error" );
+    size_t readed = fread(buff, 1, BUFFER_SIZE, f);
+    if (ferror(f))
+    {
+        perror("read error");
         goto cleanup;
     }
 
     // to find ECDR signature (as frame) in buffer
     // it isn't zip if it don't find
-    find_result_t fres = _find_frame( buff, readed, ECDR_SIGNATURE );
-    if( fres.result ) {
+    find_result_t fres = _find_frame(buff, readed, ECDR_SIGNATURE);
+    if (fres.result)
+    {
         *offset = fres.offset;
         result = true;
         goto cleanup;
     }
 
 cleanup:
-    free( buff );
+    free(buff);
     return result;
 }
 
-static bool load(void *dest, size_t size, FILE *f, size_t offset )
+static bool load(void *dest, size_t size, FILE *f, size_t offset)
 {
-    fseek( f, 0 - offset, SEEK_END );
-    fread( dest, size, 1, f );
-    if( ferror( f )) {
-        perror( "load ecdr" );
+    fseek(f, 0 - offset, SEEK_END);
+    fread(dest, size, 1, f);
+    if (ferror(f))
+    {
+        perror("load ecdr");
         return false;
     }
     return true;
@@ -151,18 +160,26 @@ static bool load(void *dest, size_t size, FILE *f, size_t offset )
 
 static bool load_cdfh(FILE *f, size_t offset, cdfh_t *cdfh, size_t *name_offset, size_t *next_cdfn_offset)
 {
-    if( !cdfh )
-        return false;
-    if( !next_cdfn_offset )
-        return false;
-    if( !name_offset )
-        return false;
-
-    if( !load( cdfh, CDFH_SIZE, f, offset )) {
+    if (!cdfh)
+    {
         return false;
     }
-    if( cdfh->signature != CDFH_SIGNATURE )
+    if (!next_cdfn_offset)
+    {
         return false;
+    }
+    if (!name_offset)
+    {
+        return false;
+    }
+    if (!load(cdfh, CDFH_SIZE, f, offset))
+    {
+        return false;
+    }
+    if (cdfh->signature != CDFH_SIGNATURE)
+    {
+        return false;
+    }
 
     *name_offset = offset - CDFH_SIZE;
     *next_cdfn_offset = offset -
@@ -179,54 +196,63 @@ static void enumerate_files(FILE *f, size_t cdfh_start_offcet)
     size_t next_cdfh_offcet = cdfh_start_offcet;
     cdfh_t cdfh;
 
-    while( load_cdfh( f, next_cdfh_offcet, &cdfh, &name_offset, &next_cdfh_offcet )) {
-        char *name_buffer = (char *)malloc( cdfh.name_length + 1 );
-        if( load( name_buffer, cdfh.name_length, f, name_offset )) {
-            name_buffer[ cdfh.name_length ] = '\0';
-            puts( name_buffer );
+    while (load_cdfh(f, next_cdfh_offcet, &cdfh, &name_offset, &next_cdfh_offcet))
+    {
+        char *name_buffer = (char *)malloc(cdfh.name_length + 1);
+        if (load(name_buffer, cdfh.name_length, f, name_offset))
+        {
+            name_buffer[cdfh.name_length] = '\0';
+            puts(name_buffer);
         }
         else {
-            puts( "Something went wrong. Cant detect file name in cdfh." );
+            puts("Something went wrong. Cant detect file name in cdfh.");
         }
 
-        free( name_buffer );
+        free(name_buffer);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    if( argc < 2)
+    if (argc < 2)
     {
-        print_usage( argv[0] );
-        exit( EXIT_SUCCESS );
+        print_usage(argv[0]);
+        exit(EXIT_SUCCESS);
     }
 
     size_t ecdr_offset;
     ecdr_t ecdr;
 
     FILE *f;
-    for( int i = 1; i < argc; i++ ) {
-        printf( "\nFile %s:\n", argv[i] );
-        f = fopen( argv[i], "r" );
-        if( !f ) {
-            perror( NULL );
-            puts( "" );
+    for (int i = 1; i < argc; i++)
+    {
+        printf("\nFile %s:\n", argv[i]);
+        f = fopen(argv[i], "r");
+        if (!f)
+        {
+            perror(NULL);
+            puts("");
             continue;
         }
 
-        bool res = find_ecdr_offset( f, &ecdr_offset );
-        if( res ) {
-            if( !load( &ecdr, ECDR_SIZE,  f, ecdr_offset ))
+        bool res = find_ecdr_offset(f, &ecdr_offset);
+        if (res)
+        {
+            if (!load( &ecdr, ECDR_SIZE,  f, ecdr_offset))
+            {
                 continue;
+            }
 
-            printf( "Files: %d\n", ecdr.disk_entries );
-            enumerate_files( f, ecdr.comment_length + ECDR_SIZE + ecdr.cd_size );
+            printf("Files: %d\n", ecdr.disk_entries);
+            enumerate_files(f, ecdr.comment_length + ECDR_SIZE + ecdr.cd_size);
         }
         else
-            puts( "It isn't zip file." );
+        {
+            puts("It isn't zip file.");
+        }
 
-        puts( "" );
+        puts("");
     }
 
-    exit( EXIT_SUCCESS );
+    exit(EXIT_SUCCESS);
 }
