@@ -75,29 +75,19 @@ typedef struct _cdfh
     uint32_t lfh_offset;
 } cdfh_t;
 
-typedef struct _find_result
+static ssize_t prv_find_frame(const char *buff, size_t buff_size, uint32_t val)
 {
-    size_t offset;
-    int8_t result;
-} find_result_t;
-
-
-static find_result_t _find_frame(const char *buff, size_t buff_size, uint32_t val)
-{
-    find_result_t res = {0};
-
     const char *end_buffer = buff + buff_size;
     const char *q = end_buffer - sizeof(val);
     while (q >= buff)
     {
-        if (*((uint32_t*)q) == val){
-            res.offset = end_buffer - q;
-            res.result = 1;
-            return res;
+        if (*((uint32_t*)q) == val)
+        {
+            return end_buffer - q;
         }
         q--;
     }
-    return res;
+    return -1;
 }
 
 #define BUFFER_SIZE ((size_t)ECDR_SIZE + (size_t)UINT16_MAX)
@@ -124,7 +114,7 @@ static bool find_ecdr_offset(FILE *f, size_t *offset)
     fseek(f, 0 - BUFFER_SIZE, SEEK_END);
 
     // read data from file
-    size_t readed = fread(buff, 1, BUFFER_SIZE, f);
+    size_t read_count = fread(buff, 1, BUFFER_SIZE, f);
     if (ferror(f))
     {
         perror("read error");
@@ -132,11 +122,11 @@ static bool find_ecdr_offset(FILE *f, size_t *offset)
     }
 
     // to find ECDR signature (as frame) in buffer
-    // it isn't zip if it don't find
-    find_result_t fres = _find_frame(buff, readed, ECDR_SIGNATURE);
-    if (fres.result)
+    // it isn't zip if ECDR signature don't find
+    ssize_t fres = prv_find_frame(buff, read_count, ECDR_SIGNATURE);
+    if (fres != -1)
     {
-        *offset = fres.offset;
+        *offset = fres;
         result = true;
         goto cleanup;
     }
@@ -146,11 +136,11 @@ cleanup:
     return result;
 }
 
-static bool load(void *dest, size_t size, FILE *f, size_t offset)
+static bool load(void *dest, size_t size, FILE *fsrc, size_t offset)
 {
-    fseek(f, 0 - offset, SEEK_END);
-    fread(dest, size, 1, f);
-    if (ferror(f))
+    fseek(fsrc, 0 - offset, SEEK_END);
+    fread(dest, size, 1, fsrc);
+    if (ferror(fsrc))
     {
         perror("load ecdr");
         return false;
@@ -190,13 +180,13 @@ static bool load_cdfh(FILE *f, size_t offset, cdfh_t *cdfh, size_t *name_offset,
     return true;
 }
 
-static void enumerate_files(FILE *f, size_t cdfh_start_offcet)
+static void enumerate_files(FILE *f, size_t cdfh_start_offset)
 {
     size_t name_offset;
-    size_t next_cdfh_offcet = cdfh_start_offcet;
+    size_t next_cdfh_offset = cdfh_start_offset;
     cdfh_t cdfh;
 
-    while (load_cdfh(f, next_cdfh_offcet, &cdfh, &name_offset, &next_cdfh_offcet))
+    while (load_cdfh(f, next_cdfh_offset, &cdfh, &name_offset, &next_cdfh_offset))
     {
         char *name_buffer = (char *)malloc(cdfh.name_length + 1);
         if (load(name_buffer, cdfh.name_length, f, name_offset))
@@ -204,7 +194,8 @@ static void enumerate_files(FILE *f, size_t cdfh_start_offcet)
             name_buffer[cdfh.name_length] = '\0';
             puts(name_buffer);
         }
-        else {
+        else
+        {
             puts("Something went wrong. Cant detect file name in cdfh.");
         }
 
@@ -230,7 +221,7 @@ int main(int argc, char *argv[])
         f = fopen(argv[i], "r");
         if (!f)
         {
-            perror(NULL);
+            perror("Opening input file");
             puts("");
             continue;
         }
@@ -238,13 +229,11 @@ int main(int argc, char *argv[])
         bool res = find_ecdr_offset(f, &ecdr_offset);
         if (res)
         {
-            if (!load( &ecdr, ECDR_SIZE,  f, ecdr_offset))
+            if (load(&ecdr, ECDR_SIZE,  f, ecdr_offset))
             {
-                continue;
+                printf("Files: %d\n", ecdr.disk_entries);
+                enumerate_files(f, ecdr.comment_length + ECDR_SIZE + ecdr.cd_size);
             }
-
-            printf("Files: %d\n", ecdr.disk_entries);
-            enumerate_files(f, ecdr.comment_length + ECDR_SIZE + ecdr.cd_size);
         }
         else
         {
@@ -252,6 +241,7 @@ int main(int argc, char *argv[])
         }
 
         puts("");
+        fclose(f);
     }
 
     exit(EXIT_SUCCESS);
