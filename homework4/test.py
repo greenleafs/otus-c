@@ -31,15 +31,21 @@ class Homework4TestCase(unittest.TestCase):
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_isnot_zipjpeg(self):
         file = 'test_files/non-zipjpeg.jpg'
-        out, _, ret_code = self.run_homework(f'./homework {file}')
-        self.assertEqual(ret_code, 0)
+        out, err, ret_code = self.run_homework(f'./homework {file}')
+        self.assertEqual(
+            ret_code, 0,
+            f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+        )
         self.assertIn('It isn\'t zip file.', out)
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_is_zipjpeg(self):
         file = 'test_files/zipjpeg.jpg'
-        out, _, ret_code = self.run_homework(f'./homework {file}')
-        self.assertEqual(ret_code, 0)
+        out, err, ret_code = self.run_homework(f'./homework {file}')
+        self.assertEqual(
+            ret_code, 0,
+            f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+        )
         self.assertIn('Files: 185', out)
         self.assertIn('jpeg-9d/maktjpeg.st', out)
 
@@ -47,5 +53,8 @@ class Homework4TestCase(unittest.TestCase):
     def test_not_exist_file(self):
         file = 'test_files/not_exist.zip'
         out, err, ret_code = self.run_homework(f'./homework {file}')
-        self.assertEqual(ret_code, 0)
+        self.assertEqual(
+            ret_code, 0,
+            f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
+        )
         self.assertIn('No such file or directory', err)
