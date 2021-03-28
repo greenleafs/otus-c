@@ -22,7 +22,7 @@ void print_usage(char *name)
 }
 
 
-static struct option _Options[] = {
+static struct option Options_[] = {
     {"help", no_argument, NULL, 'h'},
     {"list", no_argument, NULL, 'l'},
     {"from-code", required_argument, NULL, 'f'},
@@ -31,7 +31,7 @@ static struct option _Options[] = {
     {0}
 };
 
-struct _givenOption
+struct givenOptions_
 {
     char *input_file;
     char *output_file;
@@ -44,26 +44,26 @@ struct _givenOption
 int main(int argc, char *argv[])
 {
     int opt, opt_index = 0;
-    struct _givenOption gopt = {0};
+    struct givenOptions_ given_options = {0};
 
-    while ((opt = getopt_long(argc, argv, "hlf:i:o:", _Options, &opt_index)) != -1 )
+    while ((opt = getopt_long(argc, argv, "hlf:i:o:", Options_, &opt_index)) != -1 )
     {
         switch (opt)
         {
         case 'f':
-            gopt.from_enc = optarg;
+            given_options.from_enc = optarg;
             break;
         case 'i':
-            gopt.input_file = optarg;
+            given_options.input_file = optarg;
              break;
         case 'o':
-            gopt.output_file = optarg;
+            given_options.output_file = optarg;
             break;
         case 'l':
-            gopt.list = true;
+            given_options.list = true;
             break;
         case 'h':
-            gopt.help = true;
+            given_options.help = true;
             break;
         default:
             print_usage(argv[0]);
@@ -71,51 +71,51 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (gopt.help)
+    if (given_options.help)
     {
         print_usage(argv[0]);
         exit(EXIT_SUCCESS);
     }
 
-    if (gopt.list)
+    if (given_options.list)
     {
         print_supported_encodings();
         exit(EXIT_SUCCESS);
     }
 
-    if (!gopt.from_enc)
+    if (!given_options.from_enc)
     {
         printf("Option is required -- 'f'\n");
         print_usage(argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    encoding_t *enc = get_encoding_data(gopt.from_enc);
+    encoding_t *enc = get_encoding_data(given_options.from_enc);
     if (!enc)
     {
-        printf("Unsupported encoding -- %s\n", gopt.from_enc);
+        printf("Unsupported encoding -- %s\n", given_options.from_enc);
         print_supported_encodings();
         exit(EXIT_FAILURE);
     }
 
     FILE *in = stdin;
-    if (gopt.input_file)
+    if (given_options.input_file)
     {
-        in = fopen(gopt.input_file, "rb");
+        in = fopen(given_options.input_file, "rb");
         if (!in)
         {
-            perror(gopt.input_file);
+            perror(given_options.input_file);
             exit(EXIT_FAILURE);
         }
     }
 
     FILE *out = stdout;
-    if (gopt.output_file)
+    if (given_options.output_file)
     {
-        out = fopen(gopt.output_file, "wb");
+        out = fopen(given_options.output_file, "wb");
         if (!out)
         {
-            perror(gopt.output_file);
+            perror(given_options.output_file);
             fclose(in);
             exit(EXIT_FAILURE);
         }

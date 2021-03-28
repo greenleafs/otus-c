@@ -1,4 +1,4 @@
-#ifndef _ENCODE_H_
+#if !defined(_ENCODE_H_)
 #define _ENCODE_H_
 
 void print_supported_encodings(void);

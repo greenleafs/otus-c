@@ -132,7 +132,7 @@ int encode(FILE *in, FILE *out, encoding_t *enc)
 
     while (!feof(in))
     {
-        size_t readed = fread(
+        size_t read_count = fread(
             read_buff,
             sizeof(unsigned char),
             READ_BLOCK_SIZE,
@@ -150,7 +150,7 @@ int encode(FILE *in, FILE *out, encoding_t *enc)
         size_t encoded_len;
         unsigned char encoded[sizeof(utf)/sizeof(utf8_t)];
 
-        for (size_t i = 0; i < readed; i++)
+        for (size_t i = 0; i < read_count; i++)
         {
             byte_to_encode = read_buff[i];
             if (byte_to_encode < BASE_START)
