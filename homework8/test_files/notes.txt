@@ -1,0 +1,9 @@
+sts@sts-smola:~/staffcop_client/cert/dist/agent$ python2
+Python 2.7.13 (default, Sep 26 2018, 18:42:22)
+[GCC 6.3.0 20170516] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import ctypes
+>>> a = ctypes.CDLL('./_cffi_backend.so')
+>>> a
+<CDLL './_cffi_backend.so', handle 56cd0f817e00 at 7f8b7c34cf90>
+>>>
