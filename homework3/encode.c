@@ -117,7 +117,7 @@ static size_t bytes_required(uint32_t cp)
     return 0;
 }
 
-#define READ_BLOCK_SIZE 128*1024
+#define READ_BLOCK_SIZE (128 * 1024)
 int encode(FILE *in, FILE *out, encoding_t *enc)
 {
     int result = 0;
@@ -173,9 +173,9 @@ int encode(FILE *in, FILE *out, encoding_t *enc)
                           utf[encoded_len - 1].start;
 
             shift -= BASE_BITS;
-            for (size_t i = 1; i < encoded_len; ++i)
+            for (size_t j = 1; j < encoded_len; ++j)
             {
-                encoded[i] = (cp >> shift & BASE_MASK) | BASE_START;
+                encoded[j] = (cp >> shift & BASE_MASK) | BASE_START;
                 shift -= BASE_BITS;
             }
 
