@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <inttypes.h>
 
 void print_usage(const char *name)
@@ -10,7 +11,7 @@ void print_usage(const char *name)
 
 #define ECDR_SIGNATURE 0x06054B50
 #define ECDR_SIZE 22 // w/o padding; 24 - 2
-typedef struct _ecdr
+typedef struct ecdr
 {
     // 0x06054B50 -> 50 4B 05 06 (LE)
     uint32_t signature;
@@ -37,7 +38,7 @@ typedef struct _ecdr
 
 #define CDFH_SIGNATURE 0x02014B50
 #define CDFH_SIZE 46
-typedef struct _cdfh
+typedef struct cdfh
 {
     // 0x02014B50 -> 50 4B 01 02 (LE)
     uint32_t signature;
@@ -75,95 +76,69 @@ typedef struct _cdfh
     uint32_t lfh_offset;
 } cdfh_t;
 
-static ssize_t prv_find_frame(const char *buff, size_t buff_size, uint32_t val)
+static const char *find_ecdr_signature(const char *buff, size_t buff_size)
 {
     const char *end_buffer = buff + buff_size;
-    const char *q = end_buffer - sizeof(val);
+    const char *q = end_buffer - sizeof(uint32_t);
     while (q >= buff)
     {
-        if (*((uint32_t*)q) == val)
+        if (*((uint32_t*)q) == ECDR_SIGNATURE)
         {
-            return end_buffer - q;
+            return q;
         }
         q--;
     }
-    return -1;
+    return NULL;
 }
 
-#define BUFFER_SIZE ((size_t)ECDR_SIZE + (size_t)UINT16_MAX)
-static bool find_ecdr_offset(FILE *f, size_t *offset)
+#define BUFFER_SIZE (ECDR_SIZE + UINT16_MAX)
+static bool find_ecdr(FILE *f, ecdr_t *ecdr)
 {
-    // offset pointer defence
-    if (!offset)
-    {
-        return false;
-    }
-
     // get memory for buffer
+    bool result = false;
     char *buff = (char *) malloc(BUFFER_SIZE);
     if (!buff)
     {
-        perror( "ecdr_offset" );
-        return false;
+        perror("can't allocate memory in find_ecdr()");
+        goto exit;
     }
-
-    bool result = false;
 
     // set file position (from end)
     // ignore fseek error
+    printf("%ud %d\n", BUFFER_SIZE, 0-BUFFER_SIZE);
     fseek(f, 0 - BUFFER_SIZE, SEEK_END);
 
     // read data from file
     size_t read_count = fread(buff, 1, BUFFER_SIZE, f);
     if (ferror(f))
     {
-        perror("read error");
+        perror("read error in find_ecdr()");
         goto cleanup;
     }
 
     // to find ECDR signature (as frame) in buffer
     // it isn't zip if ECDR signature don't find
-    ssize_t fres = prv_find_frame(buff, read_count, ECDR_SIGNATURE);
-    if (fres != -1)
+    const char *found_ecdr = find_ecdr_signature(buff, read_count);
+    if (found_ecdr)
     {
-        *offset = fres;
+        memcpy(ecdr, found_ecdr, ECDR_SIZE);
         result = true;
         goto cleanup;
     }
 
 cleanup:
     free(buff);
+exit:
     return result;
 }
 
-static bool load(void *dest, size_t size, FILE *fsrc, size_t offset)
+static bool load_cdfh(FILE *f, long *cdfn_offset, cdfh_t *cdfh, long *name_offset)
 {
-    fseek(fsrc, 0 - offset, SEEK_END);
-    fread(dest, size, 1, fsrc);
-    if (ferror(fsrc))
+    fseek(f, 0-*cdfn_offset, SEEK_END);
+    fread(cdfh, CDFH_SIZE, 1, f);
+    if (ferror(f))
     {
-        perror("load ecdr");
-        return false;
-    }
-    return true;
-}
-
-static bool load_cdfh(FILE *f, size_t offset, cdfh_t *cdfh, size_t *name_offset, size_t *next_cdfn_offset)
-{
-    if (!cdfh)
-    {
-        return false;
-    }
-    if (!next_cdfn_offset)
-    {
-        return false;
-    }
-    if (!name_offset)
-    {
-        return false;
-    }
-    if (!load(cdfh, CDFH_SIZE, f, offset))
-    {
+        perror("read error in load_cdfn()");
         return false;
     }
     if (cdfh->signature != CDFH_SIGNATURE)
@@ -171,35 +146,46 @@ static bool load_cdfh(FILE *f, size_t offset, cdfh_t *cdfh, size_t *name_offset,
         return false;
     }
 
-    *name_offset = offset - CDFH_SIZE;
-    *next_cdfn_offset = offset -
-                        CDFH_SIZE -
-                        cdfh->name_length -
-                        cdfh->extra_length -
-                        cdfh->comment_length;
+    *name_offset = *cdfn_offset - CDFH_SIZE;
+    *cdfn_offset = *cdfn_offset -
+                   CDFH_SIZE -
+                   cdfh->name_length -
+                   cdfh->extra_length -
+                   cdfh->comment_length;
     return true;
 }
 
-static void enumerate_files(FILE *f, size_t cdfh_start_offset)
+static void read_and_print_file_name(FILE *f, long name_offset, size_t name_length)
 {
-    size_t name_offset;
-    size_t next_cdfh_offset = cdfh_start_offset;
+    char *name_buffer = (char *)malloc(name_length + 1);
+    if (!name_buffer) {
+        perror("can't allocate memory in enumerate_files()");
+        return;
+    }
+
+    fseek(f, 0-name_offset, SEEK_END);
+    fread(name_buffer, name_length, 1, f);
+    if (ferror(f))
+    {
+        perror("read error in enumerate_files()");
+        goto cleanup;
+    }
+
+    name_buffer[name_length] = '\0';
+    puts(name_buffer);
+cleanup:
+    free(name_buffer);
+}
+
+static void enumerate_files(FILE *f, long cdfh_start_offset)
+{
+    long name_offset;
+    long cdfh_offset = cdfh_start_offset;
     cdfh_t cdfh;
 
-    while (load_cdfh(f, next_cdfh_offset, &cdfh, &name_offset, &next_cdfh_offset))
+    while (load_cdfh(f, &cdfh_offset, &cdfh, &name_offset))
     {
-        char *name_buffer = (char *)malloc(cdfh.name_length + 1);
-        if (load(name_buffer, cdfh.name_length, f, name_offset))
-        {
-            name_buffer[cdfh.name_length] = '\0';
-            puts(name_buffer);
-        }
-        else
-        {
-            puts("Something went wrong. Cant detect file name in cdfh.");
-        }
-
-        free(name_buffer);
+        read_and_print_file_name(f, name_offset, cdfh.name_length);
     }
 }
 
@@ -211,10 +197,8 @@ int main(int argc, char *argv[])
         exit(EXIT_SUCCESS);
     }
 
-    size_t ecdr_offset;
-    ecdr_t ecdr;
-
     FILE *f;
+    ecdr_t ecdr;
     for (int i = 1; i < argc; i++)
     {
         printf("\nFile %s:\n", argv[i]);
@@ -226,18 +210,15 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        bool res = find_ecdr_offset(f, &ecdr_offset);
+        bool res = find_ecdr(f, &ecdr);
         if (res)
         {
-            if (load(&ecdr, ECDR_SIZE,  f, ecdr_offset))
-            {
-                printf("Files: %d\n", ecdr.disk_entries);
-                enumerate_files(f, ecdr.comment_length + ECDR_SIZE + ecdr.cd_size);
-            }
+            printf("Files: %d\n", ecdr.disk_entries);
+            enumerate_files(f, ecdr.comment_length + ECDR_SIZE + ecdr.cd_size);
         }
         else
         {
-            puts("It isn't zip file.");
+            puts("It isn't zip file or error happened while file was handling.");
         }
 
         puts("");

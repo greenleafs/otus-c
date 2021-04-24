@@ -36,7 +36,7 @@ class Homework4TestCase(unittest.TestCase):
             ret_code, 0,
             f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
         )
-        self.assertIn('It isn\'t zip file.', out)
+        self.assertIn('It isn\'t zip file', out)
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_is_zipjpeg(self):
