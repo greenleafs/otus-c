@@ -13,7 +13,8 @@ def is_homework_built():
 
 class TestSimpleHomework3(unittest.TestCase):
 
-    def run_homework(self, cmd, to_stdin_bytes=None):
+    @staticmethod
+    def run_homework(cmd, to_stdin_bytes=None):
         process = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -138,7 +139,7 @@ class TestSimpleHomework3(unittest.TestCase):
         self.assertEqual(waiting_for_result, result)
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
-    def test_encoding_option_not_specfied(self):
+    def test_encoding_option_not_specified(self):
         out, _, ret_code = self.run_homework('./homework')
         self.assertEqual(ret_code, 1)
         self.assertIn('Option is required -- \'f\'', out)
