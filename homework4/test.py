@@ -12,7 +12,8 @@ def is_homework_built():
 
 class Homework4TestCase(unittest.TestCase):
 
-    def run_homework(self, cmd):
+    @staticmethod
+    def run_homework(cmd):
         process = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
