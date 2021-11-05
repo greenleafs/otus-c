@@ -40,11 +40,11 @@ static uint32_t iso_8859_5[] = {
     0x2116, 0x0451, 0x0452, 0x0453, 0x0454, 0x0455, 0x0456, 0x0457, 0x0458, 0x0459, 0x045a, 0x045b, 0x045c, 0xa7,   0x045e, 0x045f
 };
 
-typedef struct encoding_
+struct encoding_t
 {
     char *encoding_name;
     uint32_t *encoding_data;
-} encoding_t;
+};
 
 static encoding_t supported_encodings[] = {
     {"koi8-r", koi8_r},
@@ -75,7 +75,7 @@ encoding_t* get_encoding_data(char *encoding_name)
 }
 
 
-typedef struct utf8_
+typedef struct
 {
     uint8_t mask;
     uint8_t start;
