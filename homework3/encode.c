@@ -142,7 +142,7 @@ int encode(FILE *in, FILE *out, encoding_t *enc)
         {
             result = 1;
             perror("Read error");
-            goto cleanup;
+            goto cleanup_f;
         }
 
         uint8_t byte_to_encode;
@@ -184,12 +184,13 @@ int encode(FILE *in, FILE *out, encoding_t *enc)
             {
                 result = 1;
                 perror("Write error");
-                goto cleanup;
+                goto cleanup_f;
             }
         }
     }
 
-cleanup:
+cleanup_f:
     free(read_buff);
+cleanup:
     return result;
 }
