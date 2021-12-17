@@ -20,10 +20,18 @@ if [ ! $? -eq 0 ]; then
 fi
 
 echo "Move files to $HOMEWORK_DIR..."
-cp $SKEL_DIR/homework.c $SKEL_DIR/Makefile $SKEL_DIR/test.py $HOMEWORK_DIR/
+cp $SKEL_DIR/homework.c $SKEL_DIR/test.py $HOMEWORK_DIR/
 if [ ! $? -eq 0 ]; then
     echo "Can't move files to $HOMEWORK_DIR"
     exit 1
 fi
+
+echo "Move template of Makefile to $HOMEWORK_DIR..."
+cp $SKEL_DIR/TemplMakefile $HOMEWORK_DIR/Makefile
+if [ ! $? -eq 0 ]; then
+    echo "Can't move template of Makefile to $HOMEWORK_DIR"
+    exit 1
+fi
+
 
 echo "Finished OK."
