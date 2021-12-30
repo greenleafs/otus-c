@@ -1,9 +1,21 @@
 #ifndef _H_TABLE_H
 #define _H_TABLE_H
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <stddef.h>
 
 typedef struct htable_t htable_t;
+
+typedef struct
+{
+    uint8_t *key;           // Pointer to a buffer with key
+    size_t key_len;         // length of key's buffer
+    size_t item_size;       // size of this structure
+} htable_item_base_t;
+
+typedef uint32_t (*hash_func_t)(const uint8_t *key, size_t key_len);
+typedef void (*item_destructor_t)(htable_item_base_t *item);
 
 /**
  *   Make a hash table
@@ -16,113 +28,127 @@ typedef struct htable_t htable_t;
  *
  *   \details The hash function takes a pointer to a key buffer, the length of the buffer,
  *   and returns the computed hash value for specified key.
- *   If NULL specified for the hashfunc parameter, default hash function will be used.
+ *   If NULL specified for the hashfunc parameter the default hash function will be used.
  */
-htable_t* htable_make(size_t init_len, long (*hash_func)(const void *key, size_t key_size));
+htable_t* htable_make(size_t init_len, hash_func_t hash_func);
 
-/**
- *  Make a hash table
- *
- *  \details It's a macro for call htable_make(8, NULL)
- */
-#define htable htable_make(16, NULL);
 
 /**
  *  Destroy the hash table
  *
- *  \param [in] ht - instance of hash table
+ *  \param [in] ht - The instance of hash table
+ *
+ *  \details This function calls htable_item_destructor for every item.
+ *  (see htable_set_item_destructor function description).
  */
 void htable_destroy(htable_t *ht);
 
 /**
- *  Insert key into the hash table
+ *  Insert item into the hash table
  *
  *  \param [in] ht - The instance of hash table
  *
- *  \param [in] key - The pointer to a buffer with key
+ *  \param [in] item - Pointer to a htable_item_base_t structure (or compatible structure)
  *
- *  \param [in] key_size - The length of the buffer
- *
- *  \param [in] data - The pointer to a buffer with data associated with this key
- *
- *  \param [in] data_size - The length of the buffer with data
- *
- *  \details If the key is not in hash table, it inserts key into there. If the key exists in hash table,
- *  only data associated with the key will be changed.
+ *  \details If the key of item is not in hash table, it inserts the item in there. If the key of item
+ *  exists in the hash table, the item will be changed and previous item will be destroyed.
+ *  (see htable_set_item_destructor function description).
+ *  This function makes a shallow copy of item so be careful with items that contains allocated resources!
+ *  You can assume that the hash table takes ownership of the item.
  */
-void htable_set(htable_t *ht, const void *key, size_t key_size, const void *data, size_t data_size);
+void htable_set(htable_t *ht, const htable_item_base_t *item);
 
 /**
- *  Remove key from the hashtable
+ *  Remove item from the hashtable
  *
  *  \param [in] ht - The instance of hash table
  *
- *  \param [in] key - The pointer to a buffer with key
+ *  \param [in] item - Pointer to a htable_item_base_t structure (or compatible)
  *
- *  \param [in] key_size - The length of the buffer
+ *  \return It returns true if key has been found in hash table or false if it isn't so.
  *
- *  \param [out] data - The pointer where the pointer to the buffer with data associated with key will be returned
- *
- *  \param [out] data_size - The pointer where length of the buffer with data associated with the key will be returned.
- *  Specify NULL if you don't need that.
- *
- *  \return It returns 1 if key found in hash table or zero if it isn't so. Also see "data" and "data_size" parameters.
- *
- *  \details When a key is inserted into a hash table, a memory is allocated for data associated with specified key,
- * and this data is copied into this memory. When item with a particular key is removed from the hash table,
- * you can get data associated with the key using "data" parameter. After that You are the owner of the allocated
- * memory for data associated with removed key and you have to call free() function to release it.
- * Also, you can specify NULL for data parameter. In this case the allocated
- * memory for data associated with removed key will be automatically released.
+ *  \details This function calls htable_item_destructor for removed item.
+ *  (see htable_set_item_destructor function description)
  */
-int htable_remove(htable_t *ht, const void *key, size_t key_size, void **data, size_t *data_size);
+bool htable_remove(htable_t *ht, const htable_item_base_t *item);
 
 /**
- *  Find key and return data associated with it
+ *  Remove and return item from the hashtable
  *
  *  \param [in] ht - The instance of hash table
  *
- *  \param [in] key - The pointer to a buffer with key
+ *  \param [in] item - Pointer to a htable_item_base_t structure (or compatible)
  *
- *  \param [in] key_size - The length of the buffer with key
+ *  \param [out] out_item - The pointer where the pointer to item will be returned
+  *
+ *  \return It returns true if key has been found in hash table or false if it isn't so.
  *
- *  \param [out] data - The pointer where the pointer to the buffer with data associated with key will be returned
- *
- *  \param [out] data_size - The pointer where length of the buffer with data associated with the key will be returned
- *  Specify NULL if you don't need that
- *
- *  \return It returns 1 if key found in hash table or zero if it isn't so. Also see "data" and "data_size" parameters.
- *
- *  \details You can specify NULL for "data" parameter if you only want to check that key is in hash table or not.
+ *  \details This function doesn't call htable_item_destructor for removed item just returns it to out_item parameter.
+ *  (see htable_set_item_destructor function description). You must free item itself and all
+ *  associated resources yourself.
  */
-int htable_find(htable_t *ht, const void *key, size_t key_size, const void **data, size_t *data_size);
+bool htable_pop(htable_t *ht, const htable_item_base_t *item, htable_item_base_t **out_item);
 
 /**
- *   Is there a key in the hash table
+ *  Find and return item
  *
- *    \details It's a macro for call htable_find(ht, key, key_size, NULL, NULL)
+ *  \param [in] ht - The instance of hash table
+ *
+ *  \param [in] item - Pointer to a htable_item_base_t structure (or compatible)
+ *
+ *  \param [out] out_item - The pointer where the pointer to item will be returned
+ *
+ *  \return  It returns true if key has been found in hash table or false if it isn't so.
+ *
+ *  \details You can specify NULL for out_item parameter if you  want just to check whether item is in hash table or not.
+ *  Fields key, key_len, item_size of out_item structure must not be changed!!
  */
-#define has_key(ht, key, key_size) htable_find(ht, key, key_size, NULL, NULL)
+bool htable_find(htable_t *ht, const htable_item_base_t *item, htable_item_base_t **out_item);
 
 /**
  * Enumerate keys of hash table
  *
  * \param [in] ht - The instance of hash table
  *
- * \param [in] callback - The pointer to function that will be called for each key in hash table
+ * \param [in] callback - The pointer to function that will be called for each item in hash table
  *
- * \details The callback function function takes a next parameters: \code
- * ht - The pointer to the instance of hash table,
- * key - The pointer to a buffer with key
- * key_size - The length of the buffer with key
- * data - The pointer to a buffer with data associated with this key
- * data_size - The length of the buffer with data
- *
- * The callback function can return zero for stop enumeration. In other cases it have to return non-zero value.
+ * \details The callback function can return zero to stop enumeration.
+ * In other cases it has to return non-zero value.
+ * Fields key, key_len, item_size of out_item structure must not be changed!!
  */
-void htable_enumerate_keys(htable_t *ht, int (*callback)(htable_t *ht,
-                                                         const void *key, size_t key_size,
-                                                         const void *data, size_t data_size));
+void htable_enumerate_items(htable_t *ht, int (*callback)(htable_item_base_t *item));
 
+/**
+ *  Set your own function that will be called when htable needs to delete item.
+ *
+ *  \param [in] ht - The instance of hash table
+ *
+ *  \param [in] item_destructor - The pointer of your own item destructor
+ *
+ *  \returns This function returns pointer to item destructor set by previous call
+ *
+ *  \details The function can be called from htable_set, htable_remove, htable_destroy functions.
+ *  You have to take care of releasing resources associated with item correctly and the item as well.
+ *  By default the hash table just releases key buffer of item and releases item itself.
+ *  Set item_destructor parameter to NULL to get back default item destructor
+ */
+item_destructor_t htable_set_item_destructor(htable_t *ht, item_destructor_t new_item_destructor);
+
+typedef enum
+{
+    HTABLE_OK,
+    HTABLE_MEM_ERROR,
+    HTABLE_ITEM_SIZE_ERROR,
+    HTABLE_UNKNOWN
+} htable_status_t;
+
+/**
+ * Check the status of specified hash table
+ *
+ *  \param [in] ht - The instance of hash table
+ *
+ *  \returns One of values of htable_status_t.
+ */
+ htable_status_t htable_status(htable_t *ht);
 
 #endif // _H_TABLE_H
