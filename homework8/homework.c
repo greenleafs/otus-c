@@ -11,6 +11,13 @@ int print_items(htable_item_base_t *item)
 
 int main(int argc, char *argv[])
 {
+    char *keys[] = {
+        "FFFF", "Сидели две вороны", "Barbudos", "FFFF",
+        "АШМУ", "SIZ", "Eight", "Seven", "Bubago",
+        "Baranko", "Xeraxo", "Nidengo", "Mutengo", "Babango",
+        "Samoras", "Reliefo", "Machanga", "Sixtatos", "Indigos"
+    };
+
     htable_t *ht =  htable_make(8, NULL);
     if (!ht)
     {
@@ -20,54 +27,45 @@ int main(int argc, char *argv[])
 
     htable_item_base_t item;
     item.item_size = sizeof(htable_item_base_t);
+    for(size_t i = 0; i < 5; i++)
+    {
+        item.key = (uint8_t *)keys[i];
+        item.key_len = strlen((char*)item.key);
+        htable_set(ht, &item);
+    }
 
-    item.key = (uint8_t *)"FFFF";
-    item.key_len = strlen((char*)item.key);
-//    printf("KEY: %s ", item.key);
-    htable_set(ht, &item);
-//    printf("\n");
-
-    item.key = (uint8_t *)"Сидели две вороны";
-    item.key_len = strlen((char*)item.key);
-//    printf("KEY: %s ", item.key);
-    htable_set(ht, &item);
-//    printf("\n");
-
-    item.key = (uint8_t *)"Barbudos";
-    item.key_len = strlen((char*)item.key);
-//    printf("KEY: %s ", item.key);
-    htable_set(ht, &item);
-//    printf("\n");
-
-    item.key = (uint8_t *)"FFFF";
-    item.key_len = strlen((char*)item.key);
-//    printf("KEY: %s ", item.key);
-    htable_set(ht, &item);
-//    printf("\n");
+    htable_item_base_t *out;
+    bool res;
 
     item.key = (uint8_t *)"АШМУ";
     item.key_len = strlen((char*)item.key);
-//    printf("KEY: %s ", item.key);
-    htable_set(ht, &item);
-//    printf("\n");
+    res = htable_find(ht, &item, &out);
+    if (res)
+    {
+        printf("The key %s was found\n", item.key);
+    } else {
+        printf("The key %s was not found\n", item.key);
+    }
 
-    item.key = (uint8_t *)"SIZ";
+    item.key = (uint8_t *)"Сидели две вороны";
     item.key_len = strlen((char*)item.key);
-//    printf("KEY: %s ", item.key);
-    htable_set(ht, &item);
-//    printf("\n");
+    res = htable_remove(ht, &item);
+    if (res)
+    {
+        printf("The key %s was found\n", item.key);
+    } else {
+        printf("The key %s was not found\n", item.key);
+    }
 
-    item.key = (uint8_t *)"Seven";
+    item.key = (uint8_t *)"АШМУ";
     item.key_len = strlen((char*)item.key);
-//    printf("KEY: %s ", item.key);
-    htable_set(ht, &item);
-//    printf("\n");
-
-    item.key = (uint8_t *)"Eight";
-    item.key_len = strlen((char*)item.key);
-//    printf("KEY: %s ", item.key);
-    htable_set(ht, &item);
-//    printf("\n");
+    res = htable_find(ht, &item, &out);
+    if (res)
+    {
+        printf("The key %s was found\n", item.key);
+    } else {
+        printf("The key %s was not found\n", item.key);
+    }
 
     htable_enumerate_items(ht, print_items);
     htable_destroy(ht);

@@ -4,18 +4,19 @@
 
 #include "htable.h"
 
-#define CHECK_AND_EXIT_WITH_VAL(x, v)  if (!x)  return v;
-#define CHECK_AND_EXIT(x)              if (!x)  return;
-#define CHECK_ITEM_SIZE_AND_EXIT(h, x) if (x->item_size < sizeof(htable_item_base_t)) \
-                                       {                                              \
-                                           h->last_error = HTABLE_ITEM_SIZE_ERROR;    \
-                                           return;                                    \
-                                       }
-#define CHECK_MEM_ERROR_AND_EXIT(h, x) if (!x)                                        \
-                                       {                                              \
-                                           h->last_error = HTABLE_MEM_ERROR;          \
-                                           return;                                    \
-                                       }
+#define CHECK_AND_EXIT_WITH_VAL_IF(cond, v)       if (cond)  return v;
+#define CHECK_AND_EXIT_IF(cond)                   if (cond)  return;
+#define SET_HTABLE_ERROR_AND_EXIT_IF(cond, h, e)  if (cond)                                   \
+                                                  {                                           \
+                                                      h->last_error = e;                      \
+                                                      return;                                 \
+                                                  }
+
+#define SET_HTABLE_ERROR_AND_EXIT_WITH_VAL_IF(cond, h, e, v)  if (cond)                          \
+                                                              {                                  \
+                                                                  h->last_error = e;             \
+                                                                  return v;                      \
+                                                              }
 
 struct htable_t
 {
@@ -26,6 +27,10 @@ struct htable_t
     item_destructor_t item_destructor;
     int last_error;
 };
+
+// We use address of this for marking items as deleted
+htable_item_base_t deleted__;
+htable_item_base_t *marked_as_deleted = &deleted__;
 
 /**
  * Jenkins hash function. Used as default hash function.
@@ -69,15 +74,10 @@ static bool compare_items_key(const htable_item_base_t *item_first, const htable
 static void expand(htable_t *ht)
 {
     size_t new_capacity = ht->capacity << 1;
-    // overflow control.
-    if (new_capacity < ht->capacity)
-    {
-        ht->last_error = HTABLE_MEM_ERROR;
-        return;
-    }
+    CHECK_AND_EXIT_IF(new_capacity < ht->capacity) // overflow control.
 
     htable_item_base_t **new_items = calloc(new_capacity, sizeof(htable_item_base_t*));
-    CHECK_MEM_ERROR_AND_EXIT(ht, new_items)
+    CHECK_AND_EXIT_IF(!new_items)
 
     htable_item_base_t *item;
     uint32_t hash;
@@ -85,11 +85,11 @@ static void expand(htable_t *ht)
     for (size_t i = 0; i < ht->capacity; i++)
     {
         item = ht->items[i];
-        if (item)
+        if (item && item != marked_as_deleted)
         {
             hash = ht->hash_func(item->key, item->key_len);
             index = hash % new_capacity;
-            while (new_items[index] != NULL)
+            while (new_items[index])
                 index++, index %= new_capacity;
             new_items[index] = item;
         }
@@ -100,15 +100,44 @@ static void expand(htable_t *ht)
     ht->capacity = new_capacity;
 }
 
+bool find(htable_t *ht, const htable_item_base_t *item, size_t *out_index)
+{
+    uint32_t hash = ht->hash_func(item->key, item->key_len);
+    size_t index = hash % ht->capacity;
+    htable_item_base_t *candidate = ht->items[index];
+
+    if (!candidate)
+    {
+        *out_index = index;
+        return false;
+    }
+
+    htable_item_base_t *stopper = candidate;
+    while (candidate)
+    {
+        if (candidate != marked_as_deleted && compare_items_key(candidate, item))
+        {
+            *out_index = index;
+            return true;
+        }
+
+        candidate = ht->items[++index % ht->capacity];
+        SET_HTABLE_ERROR_AND_EXIT_WITH_VAL_IF(candidate == stopper, ht, HTABLE_FULL, false)
+    }
+
+    *out_index = index;
+    return false;
+}
+
 inline htable_status_t htable_status(htable_t *ht)
 {
-    CHECK_AND_EXIT_WITH_VAL(ht, HTABLE_UNKNOWN)
+    CHECK_AND_EXIT_WITH_VAL_IF(!ht, HTABLE_UNKNOWN)
     return ht->last_error;
 }
 
 item_destructor_t htable_set_item_destructor(htable_t *ht, item_destructor_t new_item_destructor)
 {
-    CHECK_AND_EXIT_WITH_VAL(ht, NULL)
+    CHECK_AND_EXIT_WITH_VAL_IF(!ht, NULL)
     item_destructor_t current_item_destructor = ht->item_destructor;
     if (new_item_destructor == NULL)
     {
@@ -123,8 +152,8 @@ item_destructor_t htable_set_item_destructor(htable_t *ht, item_destructor_t new
 
 htable_t* htable_make(size_t init_len, uint32_t (*hash_func)(const uint8_t *key, size_t key_len))
 {
-    struct htable_t *htable = calloc(1, sizeof(struct htable_t));
-    CHECK_AND_EXIT_WITH_VAL(htable, NULL)
+    struct htable_t *htable = malloc(sizeof(struct htable_t));
+    CHECK_AND_EXIT_WITH_VAL_IF(!htable, NULL)
 
     size_t capacity = (init_len < 8) ? 8 : init_len;
     htable->items = calloc(capacity, sizeof(htable_item_base_t*));
@@ -144,11 +173,13 @@ htable_t* htable_make(size_t init_len, uint32_t (*hash_func)(const uint8_t *key,
 
 void htable_destroy(htable_t *ht)
 {
-    CHECK_AND_EXIT(ht)
+    CHECK_AND_EXIT_IF(!ht)
+    htable_item_base_t *item;
 
     for (size_t i = 0; i < ht->capacity; i++)
     {
-        if (ht->items[i])
+        item = ht->items[i];
+        if (item && item != marked_as_deleted)
             ht->item_destructor(ht->items[i]);
     }
 
@@ -158,38 +189,25 @@ void htable_destroy(htable_t *ht)
 
 void htable_set(htable_t *ht, const htable_item_base_t *item)
 {
-    CHECK_AND_EXIT(ht)
-    CHECK_AND_EXIT(item)
-    CHECK_ITEM_SIZE_AND_EXIT(ht, item)
+    CHECK_AND_EXIT_IF(!ht)
+    CHECK_AND_EXIT_IF(!item)
+    CHECK_AND_EXIT_IF(item->item_size < sizeof(htable_item_base_t))
 
     if (ht->items_count > (ht->capacity >> 1))
+        expand(ht);  // Expand && Rehash all items
+
+    size_t index;
+    bool is_founded = find(ht, item, &index);
+    CHECK_AND_EXIT_IF(ht->last_error == HTABLE_FULL)
+
+    if (is_founded)
     {
-        // Expand && Rehash all items
-        printf("Need to expand\n");
-        expand(ht);
+       ht->item_destructor(ht->items[index]);
+       ht->items_count--;
     }
 
-    uint32_t hash = ht->hash_func(item->key, item->key_len);
-    size_t index = hash % ht->capacity;
-    htable_item_base_t *candidate = ht->items[index];
-    if (candidate != NULL)
-    {
-        if (compare_items_key(candidate, item))
-        {
-            ht->item_destructor(candidate);
-            ht->items_count--;
-        }
-        else
-        {
-            // Resolve collision (linear probing).
-            printf("Collision found %X\n", hash);
-            while (candidate != NULL)
-                candidate = ht->items[++index % ht->capacity];
-        }
-    }
-
-    candidate = (htable_item_base_t*)calloc(1, item->item_size);
-    CHECK_MEM_ERROR_AND_EXIT(ht, candidate)
+    htable_item_base_t *candidate = (htable_item_base_t*)calloc(1, item->item_size);
+    SET_HTABLE_ERROR_AND_EXIT_IF(!candidate, ht, HTABLE_MEM_ERROR)
 
     memcpy(candidate, item, item->item_size);
     candidate->key = calloc(1, candidate->key_len);
@@ -208,18 +226,52 @@ void htable_set(htable_t *ht, const htable_item_base_t *item)
 
 void htable_enumerate_items(htable_t *ht, int (*callback)(htable_item_base_t *item))
 {
-    CHECK_AND_EXIT(ht)
-    CHECK_AND_EXIT(callback)
+    CHECK_AND_EXIT_IF(!ht)
+    CHECK_AND_EXIT_IF(!callback)
     int callback_result;
+    htable_item_base_t *item;
+
     for (size_t i = 0; i < ht->capacity; i++)
     {
-        if (ht->items[i])
+        item = ht->items[i];
+        if (item && item != marked_as_deleted)
         {
             callback_result = callback(ht->items[i]);
             if( !callback_result )
                 break;
         }
     }
+}
 
+bool htable_find(htable_t *ht, const htable_item_base_t *item, htable_item_base_t **out_item)
+{
+    CHECK_AND_EXIT_WITH_VAL_IF(!ht, false)
+    CHECK_AND_EXIT_WITH_VAL_IF(!item, false)
+
+    size_t index;
+    bool is_founded = find(ht, item, &index);
+
+    if (is_founded)
+    {
+        if (out_item)
+            *out_item = ht->items[index];
+        return true;
+    }
+    return false;
+}
+
+bool htable_remove(htable_t *ht, const htable_item_base_t *item)
+{
+    CHECK_AND_EXIT_WITH_VAL_IF(!ht, false)
+    CHECK_AND_EXIT_WITH_VAL_IF(!item, false)
+
+    size_t index;
+    bool is_founded = find(ht, item, &index);
+    if (!is_founded)
+        return false;
+
+    ht->item_destructor(ht->items[index]);
+    ht->items[index] = marked_as_deleted;
     ht->last_error = HTABLE_OK;
+    return true;
 }

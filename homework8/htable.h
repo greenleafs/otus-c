@@ -139,7 +139,8 @@ typedef enum
     HTABLE_OK,
     HTABLE_MEM_ERROR,
     HTABLE_ITEM_SIZE_ERROR,
-    HTABLE_UNKNOWN
+    HTABLE_UNKNOWN,
+    HTABLE_FULL
 } htable_status_t;
 
 /**
