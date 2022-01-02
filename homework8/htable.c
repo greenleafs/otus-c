@@ -1,22 +1,23 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "htable.h"
 
 #define CHECK_AND_EXIT_WITH_VAL_IF(cond, v)       if (cond)  return v;
 #define CHECK_AND_EXIT_IF(cond)                   if (cond)  return;
-#define SET_HTABLE_ERROR_AND_EXIT_IF(cond, h, e)  if (cond)                                   \
-                                                  {                                           \
-                                                      h->last_error = e;                      \
-                                                      return;                                 \
-                                                  }
+#define SET_HTABLE_ERROR_AND_EXIT_IF(cond, h, e)  \
+    if (cond)                                     \
+    {                                             \
+      h->last_error = e;                          \
+      return;                                     \
+    }                                             \
 
-#define SET_HTABLE_ERROR_AND_EXIT_WITH_VAL_IF(cond, h, e, v)  if (cond)                          \
-                                                              {                                  \
-                                                                  h->last_error = e;             \
-                                                                  return v;                      \
-                                                              }
+#define SET_HTABLE_ERROR_AND_EXIT_WITH_VAL_IF(cond, h, e, v)  \
+    if (cond)                                                 \
+    {                                                         \
+      h->last_error = e;                                      \
+      return v;                                               \
+    }                                                         \
 
 struct htable_t
 {
@@ -187,11 +188,12 @@ void htable_destroy(htable_t *ht)
     free(ht);
 }
 
-void htable_set(htable_t *ht, const htable_item_base_t *item)
+void htable_set(htable_t *ht, const htable_item_base_t *item, size_t item_size)
 {
     CHECK_AND_EXIT_IF(!ht)
     CHECK_AND_EXIT_IF(!item)
-    CHECK_AND_EXIT_IF(item->item_size < sizeof(htable_item_base_t))
+    CHECK_AND_EXIT_IF(!item->key)
+    CHECK_AND_EXIT_IF(item_size < sizeof(htable_item_base_t))
 
     if (ht->items_count > (ht->capacity >> 1))
         expand(ht);  // Expand && Rehash all items
@@ -206,10 +208,10 @@ void htable_set(htable_t *ht, const htable_item_base_t *item)
        ht->items_count--;
     }
 
-    htable_item_base_t *candidate = (htable_item_base_t*)calloc(1, item->item_size);
+    htable_item_base_t *candidate = (htable_item_base_t*)calloc(1, item_size);
     SET_HTABLE_ERROR_AND_EXIT_IF(!candidate, ht, HTABLE_MEM_ERROR)
 
-    memcpy(candidate, item, item->item_size);
+    memcpy(candidate, item, item_size);
     candidate->key = calloc(1, candidate->key_len);
     if (!candidate->key)
     {
@@ -247,6 +249,7 @@ bool htable_find(htable_t *ht, const htable_item_base_t *item, htable_item_base_
 {
     CHECK_AND_EXIT_WITH_VAL_IF(!ht, false)
     CHECK_AND_EXIT_WITH_VAL_IF(!item, false)
+    CHECK_AND_EXIT_WITH_VAL_IF(!item->key, false)
 
     size_t index;
     bool is_founded = find(ht, item, &index);
@@ -264,6 +267,7 @@ bool htable_remove(htable_t *ht, const htable_item_base_t *item)
 {
     CHECK_AND_EXIT_WITH_VAL_IF(!ht, false)
     CHECK_AND_EXIT_WITH_VAL_IF(!item, false)
+    CHECK_AND_EXIT_WITH_VAL_IF(!item->key, false)
 
     size_t index;
     bool is_founded = find(ht, item, &index);
@@ -274,4 +278,21 @@ bool htable_remove(htable_t *ht, const htable_item_base_t *item)
     ht->items[index] = marked_as_deleted;
     ht->last_error = HTABLE_OK;
     return true;
+}
+
+htable_item_base_t *htable_pop(htable_t *ht, const htable_item_base_t *item)
+{
+    CHECK_AND_EXIT_WITH_VAL_IF(!ht, false)
+    CHECK_AND_EXIT_WITH_VAL_IF(!item, false)
+    CHECK_AND_EXIT_WITH_VAL_IF(!item->key, false)
+
+    size_t index;
+    bool is_founded = find(ht, item, &index);
+    if (!is_founded)
+        return NULL;
+
+    htable_item_base_t *res = ht->items[index];
+    ht->items[index] = marked_as_deleted;
+    ht->last_error = HTABLE_OK;
+    return res;
 }

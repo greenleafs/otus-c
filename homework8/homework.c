@@ -26,12 +26,12 @@ int main(int argc, char *argv[])
     }
 
     htable_item_base_t item;
-    item.item_size = sizeof(htable_item_base_t);
-    for(size_t i = 0; i < 5; i++)
+    size_t item_size = sizeof(htable_item_base_t);
+    for(size_t i = 0; i < sizeof(keys)/sizeof(char*); i++)
     {
         item.key = (uint8_t *)keys[i];
         item.key_len = strlen((char*)item.key);
-        htable_set(ht, &item);
+        htable_set(ht, &item, item_size);
     }
 
     htable_item_base_t *out;
@@ -65,6 +65,24 @@ int main(int argc, char *argv[])
         printf("The key %s was found\n", item.key);
     } else {
         printf("The key %s was not found\n", item.key);
+    }
+
+    item_destructor_t destructor = htable_set_item_destructor(ht, NULL);
+    item.key = "Baranko";
+    item.key_len = strlen((char*)item.key);
+    htable_item_base_t *out_item = htable_pop(ht, &item);
+    if (out_item)
+    {
+        printf("Pop ok!");
+        destructor(out_item);
+
+        res = htable_find(ht, &item, &out);
+        if (res)
+        {
+            printf("The key %s was found\n", item.key);
+        } else {
+            printf("The key %s was not found\n", item.key);
+        }
     }
 
     htable_enumerate_items(ht, print_items);

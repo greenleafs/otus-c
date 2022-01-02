@@ -11,7 +11,6 @@ typedef struct
 {
     uint8_t *key;           // Pointer to a buffer with key
     size_t key_len;         // length of key's buffer
-    size_t item_size;       // size of this structure
 } htable_item_base_t;
 
 typedef uint32_t (*hash_func_t)(const uint8_t *key, size_t key_len);
@@ -50,13 +49,15 @@ void htable_destroy(htable_t *ht);
  *
  *  \param [in] item - Pointer to a htable_item_base_t structure (or compatible structure)
  *
+ *  \param [in] item_size - Size of item
+ *
  *  \details If the key of item is not in hash table, it inserts the item in there. If the key of item
  *  exists in the hash table, the item will be changed and previous item will be destroyed.
  *  (see htable_set_item_destructor function description).
  *  This function makes a shallow copy of item so be careful with items that contains allocated resources!
  *  You can assume that the hash table takes ownership of the item.
  */
-void htable_set(htable_t *ht, const htable_item_base_t *item);
+void htable_set(htable_t *ht, const htable_item_base_t *item, size_t item_size);
 
 /**
  *  Remove item from the hashtable
@@ -79,15 +80,13 @@ bool htable_remove(htable_t *ht, const htable_item_base_t *item);
  *
  *  \param [in] item - Pointer to a htable_item_base_t structure (or compatible)
  *
- *  \param [out] out_item - The pointer where the pointer to item will be returned
-  *
- *  \return It returns true if key has been found in hash table or false if it isn't so.
+ *  \return It returns pointer to item if key has been found in hash table or NULL if it isn't so.
  *
- *  \details This function doesn't call htable_item_destructor for removed item just returns it to out_item parameter.
+ *  \details This function doesn't call htable_item_destructor for removed item just returns it.
  *  (see htable_set_item_destructor function description). You must free item itself and all
  *  associated resources yourself.
  */
-bool htable_pop(htable_t *ht, const htable_item_base_t *item, htable_item_base_t **out_item);
+ htable_item_base_t *htable_pop(htable_t *ht, const htable_item_base_t *item);
 
 /**
  *  Find and return item
@@ -138,7 +137,6 @@ typedef enum
 {
     HTABLE_OK,
     HTABLE_MEM_ERROR,
-    HTABLE_ITEM_SIZE_ERROR,
     HTABLE_UNKNOWN,
     HTABLE_FULL
 } htable_status_t;
