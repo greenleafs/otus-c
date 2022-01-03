@@ -35,6 +35,7 @@ size_t mem_next_idx = 0;
 size_t freed_next_idx = 0;
 size_t allocated_next_idx = 0;
 int allocation_error_emulation_flag = 0;
+int calloc_error_emulation_flag = 0;
 
 void reset_mem()
 {
@@ -45,6 +46,7 @@ void reset_mem()
     freed_next_idx = 0;
     allocated_next_idx = 0;
     allocation_error_emulation_flag = 0;
+    calloc_error_emulation_flag = 0;
 }
 
 void *mock_malloc(size_t size, char *file, int line)
@@ -69,6 +71,9 @@ void *mock_malloc(size_t size, char *file, int line)
 
 void *mock_calloc(size_t nmemb, size_t size, char *file, int line)
 {
+    if (calloc_error_emulation_flag)
+        return NULL;
+
     void *p = mock_malloc(nmemb * size, file, line);
     if (p)
         memset(p, 0, nmemb * size);
@@ -273,13 +278,13 @@ void run_tests(struct test_case *test_cases, test_setup_func_t setUpFunc)
 struct test_global_state {
     htable_t ht;
     htable_item_base_t *arr[4];
-    size_t const_hash_func_calls_count;
+    size_t hash_func_calls_count;
     size_t destructor_calls_count;
 } tgst;
 
 uint32_t const_hash_func(__attribute__((unused)) const uint8_t *key, __attribute__((unused)) size_t key_len)
 {
-    tgst.const_hash_func_calls_count++;
+    tgst.hash_func_calls_count++;
     return 0;
 }
 
@@ -291,7 +296,7 @@ void mock_item_destructor(htable_item_base_t *item)
 
 void set_up_test()
 {
-    tgst.const_hash_func_calls_count = 0;
+    tgst.hash_func_calls_count = 0;
     tgst.destructor_calls_count = 0;
 
     tgst.ht.capacity = 4;
@@ -307,8 +312,8 @@ char *test_default_item_destructor()
 {
     htable_item_base_t item = {(uint8_t*)"KEY", 3};
     default_item_destructor(&item);
-    ASSERTION(mem_freed[0].mem == item.key, "Key was not freed!")
-    ASSERTION(mem_freed[1].mem == (uint8_t*)&item, "Item was not be freed!")
+    ASSERTION(mem_freed[0].mem == item.key, "Expected: Key was freed!")
+    ASSERTION(mem_freed[1].mem == (uint8_t*)&item, "Expected: Item was freed!")
     return NULL;
 }
 
@@ -370,11 +375,7 @@ char *test_expand_empty_items()
 
     expand(ht);
 
-    ASSERTION(ht->hash_func == const_hash_func, "Expected: Hash function was not changed")
-    ASSERTION(tgst.const_hash_func_calls_count == 0, "Expected: Hash function was not called!")
-    ASSERTION(ht->item_destructor == mock_item_destructor, "Expected: Destructor function was not changed")
-    ASSERTION(tgst.destructor_calls_count == 0, "Expected: Destructor function was not called!")
-    ASSERTION(ht->items_count == 0, "Expected: items_count equals 0")
+    ASSERTION(tgst.hash_func_calls_count == 0, "Expected: Hash function was not called!")
     ASSERTION(ht->capacity == 8, "Expected: capacity equals 8!")
     ASSERTION(mem_allocated[0].mem == (uint8_t *)ht->items, "Expected: Memory was allocated!")
     ASSERTION(mem_allocated[0].size == ht->capacity * sizeof(htable_item_base_t*), "Expected: Other size of memory was allocated!")
@@ -399,16 +400,12 @@ char *test_expand()
     ht->items[0] = marked_as_deleted;
     ht->items[1] = &item1;
     ht->items[2] = marked_as_deleted;
-    ht->items[2] = &item2;
+    ht->items[3] = &item2;
     ht->items_count = 2;
 
     expand(ht);
 
-    ASSERTION(ht->hash_func == const_hash_func, "Expected: Hash function was not changed")
-    ASSERTION(tgst.const_hash_func_calls_count == 2, "Expected: Hash function was called!")
-    ASSERTION(ht->item_destructor == mock_item_destructor, "Expected: Destructor function was not changed")
-    ASSERTION(tgst.destructor_calls_count == 0, "Expected: Destructor function was not called!")
-    ASSERTION(ht->items_count == 2, "Expected: items_count equals 0")
+    ASSERTION(tgst.hash_func_calls_count == 2, "Expected: Hash function was called 2 times!")
     ASSERTION(ht->capacity == 8, "Expected: capacity equals 8!")
     ASSERTION(mem_allocated[0].mem == (uint8_t *)ht->items, "Expected: Memory was allocated!")
     ASSERTION(mem_allocated[0].size == ht->capacity * sizeof(htable_item_base_t*), "Expected: Other size of memory was allocated!")
@@ -425,6 +422,195 @@ char *test_expand()
     return NULL;
 }
 
+char *test_find_htable_full()
+{
+    htable_item_base_t item = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t for_search = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = &item;
+    ht->items[1] = marked_as_deleted;
+    ht->items[2] = marked_as_deleted;
+    ht->items[3] = marked_as_deleted;
+    ht->items_count = 1;
+
+    size_t out_idx = 0;
+    bool res = find(ht, &for_search, &out_idx);
+
+    ASSERTION(res == false, "Expected: Nothing was found!")
+    ASSERTION(ht->last_error == HTABLE_FULL, "Expected: last_error is HTABLE_FULL!")
+    ASSERTION(out_idx == 0, "Expected: out_index == 0!")
+    ASSERTION(tgst.hash_func_calls_count == 1, "Expected: Hash function was called!")
+    return NULL;
+}
+
+char *test_find_nothing_found_1()
+{
+    htable_item_base_t for_search = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    size_t out_idx = 0;
+    bool res = find(ht, &for_search, &out_idx);
+
+    ASSERTION(res == false, "Expected: Nothing was found!")
+    ASSERTION(out_idx == 0, "Expected: out_index == 0!")
+    ASSERTION(tgst.hash_func_calls_count == 1, "Expected: Hash function was called!")
+    return NULL;
+}
+
+char *test_find_nothing_found_2()
+{
+    htable_item_base_t item = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t for_search = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = marked_as_deleted;
+    ht->items[1] = &item;
+    ht->items_count = 1;
+
+    size_t out_idx = 0;
+    bool res = find(ht, &for_search, &out_idx);
+
+    ASSERTION(res == false, "Expected: Nothing was found!")
+    ASSERTION(out_idx == 2, "Expected: out_index == 2!") // index of first free item
+    ASSERTION(tgst.hash_func_calls_count == 1, "Expected: Hash function was called!")
+    return NULL;
+}
+
+char *test_find_direct()
+{
+    htable_item_base_t item = {(uint8_t*)"ABC_KEY", 7};
+    htable_item_base_t for_search = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = &item;
+    ht->items_count = 1;
+
+    size_t out_idx = 0;
+    bool res = find(ht, &for_search, &out_idx);
+
+    ASSERTION(res == true, "Expected: Item found successfully!")
+    ASSERTION(out_idx == 0, "Expected: out_index == 0!")
+    ASSERTION(tgst.hash_func_calls_count == 1, "Expected: Hash function was called!")
+    return NULL;
+}
+
+char *test_find_relative_1()
+{
+    htable_item_base_t item = {(uint8_t*)"ABC_KEY", 7};
+    htable_item_base_t for_search = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = marked_as_deleted;
+    ht->items[1] = marked_as_deleted;
+    ht->items[2] = &item;
+    ht->items_count = 1;
+
+    size_t out_idx = 0;
+    bool res = find(ht, &for_search, &out_idx);
+
+    ASSERTION(res == true, "Expected: Item was found successfully!")
+    ASSERTION(out_idx == 2, "Expected: out_index == 2!")
+    ASSERTION(tgst.hash_func_calls_count == 1, "Expected: Hash function was called!")
+    return NULL;
+}
+
+char *test_find_relative_2()
+{
+    htable_item_base_t item1 = {(uint8_t*)"ABC_KEY", 7};
+    htable_item_base_t item2 = {(uint8_t*)"FCC_KEY", 7};
+    htable_item_base_t for_search = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = &item2;
+    ht->items[1] = marked_as_deleted;
+    ht->items[2] = &item1;
+    ht->items_count = 2;
+
+    size_t out_idx = 0;
+    bool res = find(ht, &for_search, &out_idx);
+
+    ASSERTION(res == true, "Expected: Item was found successfully!")
+    ASSERTION(out_idx == 2, "Expected: out_index == 2!")
+    ASSERTION(tgst.hash_func_calls_count == 1, "Expected: Hash function was called!")
+    return NULL;
+}
+
+char *test_htable_status()
+{
+    htable_status_t status;
+    status = htable_status(NULL);
+    ASSERTION(status == HTABLE_UNKNOWN, "Expected: Status HTABLE_UNKNOWN!")
+
+    htable_t *ht = &tgst.ht;
+    status = htable_status(ht);
+    ASSERTION(status == HTABLE_OK, "Expected: Status HTABLE_OK!")
+    return NULL;
+}
+
+char *test_htable_set_item_destructor()
+{
+    item_destructor_t d;
+    d = htable_set_item_destructor(NULL, NULL);
+    ASSERTION(d == NULL, "Expected: NULL!")
+
+    htable_t *ht = &tgst.ht;
+    d = htable_set_item_destructor(ht, NULL);
+    ASSERTION(d == mock_item_destructor, "Expected: mock_item_destructor!")
+    ASSERTION(ht->item_destructor == default_item_destructor, "Expected: default destructor!")
+
+    d = htable_set_item_destructor(ht, mock_item_destructor);
+    ASSERTION(d == default_item_destructor, "Expected: default destructor!")
+    ASSERTION(ht->item_destructor == mock_item_destructor, "Expected: mock_item_destructor!")
+    return  NULL;
+}
+
+char *test_htable_make()
+{
+    htable_t *ht;
+
+    ht = htable_make(0, NULL);
+    ASSERTION(ht != NULL, "Expected: not NULL!")
+    ASSERTION(ht->capacity == 8, "Expected: capacity == 8!")
+    ASSERTION(ht->items_count == 0, "Expected: items_count == 0!")
+    ASSERTION(ht->last_error == HTABLE_OK, "Expected: HTABLE_OK!")
+    ASSERTION(ht->hash_func == jenkins_one_at_a_time_hash, "Expected: default hash_function!")
+    ASSERTION(ht->item_destructor == default_item_destructor, "Expected: default destructor!")
+    ASSERTION((uint8_t*)ht == mem_allocated[0].mem, "Expected: Memory for htable allocated!")
+    ASSERTION((uint8_t*)ht->items == mem_allocated[1].mem, "Expected: Memory for items allocated!")
+    ASSERTION(mem_allocated[1].size == ht->capacity*sizeof(htable_item_base_t*), "Expected: Allocated size!")
+    return NULL;
+}
+
+char *test_htable_make_malloc_fail()
+{
+    htable_t *ht;
+    allocation_error_emulation_flag = 1;
+    ht = htable_make(0, NULL);
+    ASSERTION(ht == NULL, "Expected: NULL")
+    return NULL;
+}
+
+char *test_htable_make_with_specified_params()
+{
+    htable_t *ht;
+    ht = htable_make(16, const_hash_func);
+    ASSERTION(ht != NULL, "Expected: not NULL!")
+    ASSERTION(ht->capacity == 16, "Expected: capacity == 16!")
+    ASSERTION(ht->hash_func == const_hash_func, "Expected: Specified hash function!")
+    return NULL;
+}
+
+char *test_htable_make_calloc_fail()
+{
+    htable_t *ht;
+    calloc_error_emulation_flag = 1;
+    ht = htable_make(0, NULL);
+    ASSERTION(ht == NULL, "Expected: NULL")
+    DETECT_MEMORY_LEAK
+    return NULL;
+}
+
 /// ----------------------------------------------------------------
 int main(void)
 {
@@ -437,6 +623,18 @@ int main(void)
         {"Test expand 2", test_expand_mem_allocation_fail},
         {"Test expand 3", test_expand_empty_items},
         {"Test expand 4", test_expand},
+        {"Test find 1", test_find_htable_full},
+        {"Test find 2", test_find_nothing_found_1},
+        {"Test find 3", test_find_nothing_found_2},
+        {"Test find 4", test_find_direct},
+        {"Test find 5", test_find_relative_1},
+        {"Test find 6", test_find_relative_2},
+        {"Test htable_status", test_htable_status},
+        {"Test htable_set_item_destructor", test_htable_set_item_destructor},
+        {"Test htable_make", test_htable_make},
+        {"Test htable_make malloc fail", test_htable_make_malloc_fail},
+        {"Test htable_make set hash function", test_htable_make_with_specified_params},
+        {"Test htable_make set calloc fail", test_htable_make_calloc_fail},
         {0, 0},
     };
 

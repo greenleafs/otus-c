@@ -113,7 +113,7 @@ static bool find(htable_t *ht, const htable_item_base_t *item, size_t *out_index
         return false;
     }
 
-    htable_item_base_t *stopper = candidate;
+    size_t stopper = index;
     while (candidate)
     {
         if (candidate != marked_as_deleted && compare_items_key(candidate, item))
@@ -123,7 +123,7 @@ static bool find(htable_t *ht, const htable_item_base_t *item, size_t *out_index
         }
 
         candidate = ht->items[++index % ht->capacity];
-        SET_HTABLE_ERROR_AND_EXIT_WITH_VAL_IF(candidate == stopper, ht, HTABLE_FULL, false)
+        SET_HTABLE_ERROR_AND_EXIT_WITH_VAL_IF(index % ht->capacity == stopper, ht, HTABLE_FULL, false)
     }
 
     *out_index = index;
