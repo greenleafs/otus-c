@@ -101,7 +101,7 @@ static void expand(htable_t *ht)
     ht->capacity = new_capacity;
 }
 
-bool find(htable_t *ht, const htable_item_base_t *item, size_t *out_index)
+static bool find(htable_t *ht, const htable_item_base_t *item, size_t *out_index)
 {
     uint32_t hash = ht->hash_func(item->key, item->key_len);
     size_t index = hash % ht->capacity;

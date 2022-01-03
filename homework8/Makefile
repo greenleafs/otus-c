@@ -12,9 +12,12 @@ homework.o: homework.c
 htable.o: htable.c htable.h
 	$(CC) $(CFLAGS) htable.c
 
+htable_test: htable.c htable.h htable_test.c
+	$(CC) -Wall -Wextra -Wpedantic -std=c11 -g htable_test.c -o htable_test
+
 test:
 	python3 -m unittest -v test
 
 clean:
-	rm -f *.o homework
+	rm -f *.o homework htable_test
 	rm -rf __pycache__
