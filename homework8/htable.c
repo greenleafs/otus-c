@@ -277,14 +277,15 @@ bool htable_remove(htable_t *ht, const htable_item_base_t *item)
     ht->item_destructor(ht->items[index]);
     ht->items[index] = marked_as_deleted;
     ht->last_error = HTABLE_OK;
+    ht->items_count--;
     return true;
 }
 
 htable_item_base_t *htable_pop(htable_t *ht, const htable_item_base_t *item)
 {
-    CHECK_AND_EXIT_WITH_VAL_IF(!ht, false)
-    CHECK_AND_EXIT_WITH_VAL_IF(!item, false)
-    CHECK_AND_EXIT_WITH_VAL_IF(!item->key, false)
+    CHECK_AND_EXIT_WITH_VAL_IF(!ht, NULL)
+    CHECK_AND_EXIT_WITH_VAL_IF(!item, NULL)
+    CHECK_AND_EXIT_WITH_VAL_IF(!item->key, NULL)
 
     size_t index;
     bool is_founded = find(ht, item, &index);
@@ -294,5 +295,6 @@ htable_item_base_t *htable_pop(htable_t *ht, const htable_item_base_t *item)
     htable_item_base_t *res = ht->items[index];
     ht->items[index] = marked_as_deleted;
     ht->last_error = HTABLE_OK;
+    ht->items_count--;
     return res;
 }

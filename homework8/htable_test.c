@@ -853,11 +853,11 @@ char *test_htable_find_wrong_params()
     bool res;
 
     res = htable_find(NULL, NULL, NULL);
-    ASSERTION(res == false, "Expected: Nothing found!")
+    ASSERTION(res == false, "Expected: Nothing was found!")
     res = htable_find(ht, NULL, NULL);
-    ASSERTION(res == false, "Expected: Nothing found!")
+    ASSERTION(res == false, "Expected: Nothing was found!")
     res = htable_find(ht, &item, NULL);
-    ASSERTION(res == false, "Expected: Nothing found!")
+    ASSERTION(res == false, "Expected: Nothing was found!")
     return NULL;
 }
 
@@ -875,8 +875,9 @@ char *test_htable_find()
 
     htable_item_base_t *out = NULL;
     bool res = htable_find(ht, &item2, &out);
-    ASSERTION(res == true, "Expected: Item found!")
+    ASSERTION(res == true, "Expected: Item was found!")
     ASSERTION(out != NULL, "Expected: Out parameter is not NULL!")
+    ASSERTION(out == &item2, "Expected: Out parameter is item2!")
     ASSERTION(out->key == item2.key, "Expected: Founded keys matched!")
     return NULL;
 }
@@ -894,7 +895,7 @@ char *test_htable_find_no_out_item()
     ht->items_count = 2;
 
     bool res = htable_find(ht, &item2, NULL);
-    ASSERTION(res == true, "Expected: Item found!")
+    ASSERTION(res == true, "Expected: Item was found!")
     return NULL;
 }
 
@@ -911,7 +912,176 @@ char *test_htable_find_not_found()
 
     htable_item_base_t item3 = {(uint8_t*)"HHH", 3};
     bool res = htable_find(ht, &item3, NULL);
-    ASSERTION(res == false, "Expected: Item not found!")
+    ASSERTION(res == false, "Expected: Item was not found!")
+    return NULL;
+}
+
+char *test_htable_remove_wrong_params()
+{
+    htable_t *ht = &tgst.ht;
+    htable_item_base_t item = {NULL, 0};
+    bool res;
+
+    res = htable_remove(NULL, NULL);
+    ASSERTION(res == false, "Expected: Nothing was removed!")
+    res = htable_remove(ht, NULL);
+    ASSERTION(res == false, "Expected: Nothing was removed!")
+    res = htable_remove(ht, &item);
+    ASSERTION(res == false, "Expected: Nothing was removed!")
+    return NULL;
+}
+
+char *test_htable_remove_exist_key()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = &item1;
+    ht->items[1] = marked_as_deleted;
+    ht->items[2] = &item2;
+    ht->items_count = 2;
+
+    bool res = htable_remove(ht, &item2);
+    ASSERTION(res == true, "Expected: Item was found!")
+    ASSERTION(ht->items[2] == marked_as_deleted, "Expected: Item was removed!")
+    ASSERTION(tgst.destructor_calls_count == 1, "Expected: Item destructor was called 1 time!")
+    ASSERTION(freed_next_idx == 2, "Expected: Memory was released 2 times!")
+    ASSERTION(mem_freed[0].mem == (uint8_t*)item2.key, "Expected: item1 key was released!")
+    ASSERTION(mem_freed[1].mem == (uint8_t*)&item2, "Expected: item1 was released!")
+    ASSERTION(ht->items_count == 1, "Expected: items count == 1!")
+    ASSERTION(ht->capacity == 4, "Expected: capacity == 4!")
+    return NULL;
+}
+
+char *test_htable_remove_not_exist_key()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = &item1;
+    ht->items[1] = marked_as_deleted;
+    ht->items[2] = &item2;
+    ht->items_count = 2;
+
+    htable_item_base_t item3 = {(uint8_t*)"HHH", 3};
+    bool res = htable_remove(ht, &item3);
+    ASSERTION(res == false, "Expected: Item was not found!")
+    ASSERTION(tgst.destructor_calls_count == 0, "Expected: Item destructor was not called!")
+    ASSERTION(freed_next_idx == 0, "Expected: Memory was released 2 times!")
+    ASSERTION(ht->items_count == 2, "Expected: items count == 2!")
+    ASSERTION(ht->capacity == 4, "Expected: capacity == 4!")
+    return NULL;
+}
+
+char *test_htable_pop_wrong_params()
+{
+    htable_t *ht = &tgst.ht;
+    htable_item_base_t item = {NULL, 0};
+    htable_item_base_t *res;
+
+    res = htable_pop(NULL, NULL);
+    ASSERTION(res == NULL, "Expected: Nothing was removed!")
+    res = htable_pop(ht, NULL);
+    ASSERTION(res == NULL, "Expected: Nothing was removed!")
+    res = htable_pop(ht, &item);
+    ASSERTION(res == NULL, "Expected: Nothing was removed!")
+    return NULL;
+}
+
+char *test_htable_pop_exist_key()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = &item1;
+    ht->items[1] = marked_as_deleted;
+    ht->items[2] = &item2;
+    ht->items_count = 2;
+
+    htable_item_base_t * res = htable_pop(ht, &item2);
+    ASSERTION(res == &item2, "Expected: Item was found!")
+    ASSERTION(ht->items[2] == marked_as_deleted, "Expected: Item was removed!")
+    ASSERTION(tgst.destructor_calls_count == 0, "Expected: Item destructor was not called!")
+    ASSERTION(freed_next_idx == 0, "Expected: Memory was not released!")
+    ASSERTION(ht->items_count == 1, "Expected: items count == 1!")
+    ASSERTION(ht->capacity == 4, "Expected: capacity == 4!")
+    return NULL;
+}
+
+char *test_htable_pop_not_exist_key()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = &item1;
+    ht->items[1] = marked_as_deleted;
+    ht->items[2] = &item2;
+    ht->items_count = 2;
+
+    htable_item_base_t item3 = {(uint8_t*)"HHH", 3};
+    htable_item_base_t *res = htable_pop(ht, &item3);
+    ASSERTION(res == NULL, "Expected: Item was not found!")
+    ASSERTION(ht->items_count == 2, "Expected: items count == 2!")
+    ASSERTION(ht->capacity == 4, "Expected: capacity == 4!")
+    return NULL;
+}
+
+char *test_functional()
+{
+    htable_t *ht =  htable_make(8, NULL);
+    ASSERTION(ht != NULL, "Expected: Hash table was created!")
+
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"AT_KEY_2", 8};
+    htable_item_base_t item3 = {(uint8_t*)"CC_KEY_22", 9};
+    htable_item_base_t item4 = {(uint8_t*)"PU_KEY_333", 10};
+    htable_item_base_t item5 = {(uint8_t*)"HASH TABLE DONT CONTAIN THIS KEY", 32};
+
+    htable_set(ht, &item1, sizeof(htable_item_base_t));
+    htable_set(ht, &item2, sizeof(htable_item_base_t));
+    htable_set(ht, &item3, sizeof(htable_item_base_t));
+    htable_set(ht, &item4, sizeof(htable_item_base_t));
+    ASSERTION(ht->items_count == 4, "Expected: items count == 4!")
+    ASSERTION(ht->capacity == 8, "Expected: capacity == 8!")
+
+    htable_item_base_t *out = NULL;
+    bool res;
+    int res1;
+
+    res = htable_find(ht, &item2, NULL);
+    ASSERTION(res == true, "Expected: Item was found!")
+    res = htable_find(ht, &item3, NULL);
+    ASSERTION(res == true, "Expected: Item was found!")
+    res = htable_find(ht, &item4, NULL);
+    ASSERTION(res == true, "Expected: Item was found!")
+    res = htable_find(ht, &item5, NULL);
+    ASSERTION(res == false, "Expected: Item was not found!")
+
+    res = htable_find(ht, &item1, &out);
+    ASSERTION(res == true, "Expected: Item was found!")
+    ASSERTION(out != NULL, "Expected: Out parameter is not NULL!")
+    res1 = memcmp(out->key, item1.key, item1.key_len);
+    ASSERTION(res1 == 0, "Expected: Key matched!")
+
+    res = htable_remove(ht, &item4);
+    ASSERTION(res == true, "Expected: Item was found!")
+    res = htable_remove(ht, &item5);
+    ASSERTION(res == false, "Expected: Item was not found!")
+
+    out = htable_pop(ht, &item5);
+    ASSERTION(out == NULL, "Expected: Item was not found!")
+    out = htable_pop(ht, &item1);
+    ASSERTION(out != NULL, "Expected: Item was found!")
+    default_item_destructor(out);
+
+    htable_destroy(ht);
+    DETECT_MEMORY_LEAK
+    DETECT_BUFFER_UNDERFLOW
+    DETECT_BUFFER_OVERFLOW
     return NULL;
 }
 
@@ -955,6 +1125,13 @@ int main(void)
         {"Test htable_find ", test_htable_find},
         {"Test htable_find no out_item ", test_htable_find_no_out_item},
         {"Test htable_find not found item ", test_htable_find_not_found},
+        {"Test htable_remove wrong params ", test_htable_remove_wrong_params},
+        {"Test htable_remove exist key ", test_htable_remove_exist_key},
+        {"Test htable_remove not exist key ", test_htable_remove_not_exist_key},
+        {"Test htable_pop wrong params ", test_htable_pop_wrong_params},
+        {"Test htable_pop exist key ", test_htable_pop_exist_key},
+        {"Test htable_pop not exist key ", test_htable_pop_not_exist_key},
+        {"Test functional of hash table ", test_functional},
         {0, 0},
     };
 
