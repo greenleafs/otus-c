@@ -202,12 +202,6 @@ void htable_set(htable_t *ht, const htable_item_base_t *item, size_t item_size)
     bool is_founded = find(ht, item, &index);
     CHECK_AND_EXIT_IF(ht->last_error == HTABLE_FULL)
 
-    if (is_founded)
-    {
-       ht->item_destructor(ht->items[index]);
-       ht->items_count--;
-    }
-
     htable_item_base_t *candidate = (htable_item_base_t*)calloc(1, item_size);
     SET_HTABLE_ERROR_AND_EXIT_IF(!candidate, ht, HTABLE_MEM_ERROR)
 
@@ -218,6 +212,12 @@ void htable_set(htable_t *ht, const htable_item_base_t *item, size_t item_size)
         free(candidate);
         ht->last_error = HTABLE_MEM_ERROR;
         return;
+    }
+
+    if (is_founded)
+    {
+       ht->item_destructor(ht->items[index]);
+       ht->items_count--;
     }
 
     memcpy(candidate->key, item->key, candidate->key_len);

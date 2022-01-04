@@ -35,7 +35,7 @@ size_t mem_next_idx = 0;
 size_t freed_next_idx = 0;
 size_t allocated_next_idx = 0;
 int allocation_error_emulation_flag = 0;
-int calloc_error_emulation_flag = 0;
+size_t allocation_error_emulation_after_nth_calls = 0;
 
 void reset_mem()
 {
@@ -46,12 +46,15 @@ void reset_mem()
     freed_next_idx = 0;
     allocated_next_idx = 0;
     allocation_error_emulation_flag = 0;
-    calloc_error_emulation_flag = 0;
+    allocation_error_emulation_after_nth_calls = -1;
 }
 
 void *mock_malloc(size_t size, char *file, int line)
 {
     if (allocation_error_emulation_flag)
+        return NULL;
+
+    if (allocation_error_emulation_after_nth_calls && allocated_next_idx == allocation_error_emulation_after_nth_calls)
         return NULL;
 
     struct allocated *tr = &mem_allocated[allocated_next_idx++];
@@ -71,9 +74,6 @@ void *mock_malloc(size_t size, char *file, int line)
 
 void *mock_calloc(size_t nmemb, size_t size, char *file, int line)
 {
-    if (calloc_error_emulation_flag)
-        return NULL;
-
     void *p = mock_malloc(nmemb * size, file, line);
     if (p)
         memset(p, 0, nmemb * size);
@@ -246,7 +246,7 @@ void run_tests(struct test_case *test_cases, test_setup_func_t setUpFunc)
 
         // run test
         char *msg = tc->test_func();
-        printf("%-36s ", tc->test_description);
+        printf("%-46s ", tc->test_description);
         if (msg != NULL)
         {
             printf(" FAIL!\n    %s\n", msg);
@@ -262,11 +262,11 @@ void run_tests(struct test_case *test_cases, test_setup_func_t setUpFunc)
     }
 
     printf("-------------------------------------------------------------\n");
-    printf("Test executed:     %20lu\n", test_executed);
-    printf("Test completed ok: %20lu\n", test_ok);
-    printf("Test failed:       %20lu\n\n", test_fail);
+    printf("Test executed:     %32lu\n", test_executed);
+    printf("Test completed ok: %32lu\n", test_ok);
+    printf("Test failed:       %32lu\n\n", test_fail);
     if (test_fail)
-        printf("!!!! TESTS HAS NOT PASSED !!!!\n\n\n");
+        printf("!!!! TESTS HAVE NOT PASSED !!!!\n\n\n");
 }
 
 /// TEST FOR
@@ -278,8 +278,10 @@ void run_tests(struct test_case *test_cases, test_setup_func_t setUpFunc)
 struct test_global_state {
     htable_t ht;
     htable_item_base_t *arr[4];
+    htable_item_base_t *enumerated[4];
     size_t hash_func_calls_count;
     size_t destructor_calls_count;
+    size_t enum_callback_calls_count;
 } tgst;
 
 uint32_t const_hash_func(__attribute__((unused)) const uint8_t *key, __attribute__((unused)) size_t key_len)
@@ -298,6 +300,7 @@ void set_up_test()
 {
     tgst.hash_func_calls_count = 0;
     tgst.destructor_calls_count = 0;
+    tgst.enum_callback_calls_count = 0;
 
     tgst.ht.capacity = 4;
     tgst.ht.items = tgst.arr;
@@ -306,6 +309,7 @@ void set_up_test()
     tgst.ht.hash_func = const_hash_func;
     tgst.ht.last_error = HTABLE_OK;
     memset(tgst.arr, 0, 4 * sizeof(htable_item_base_t*));
+    memset(tgst.enumerated, 0, 4 * sizeof(htable_item_base_t*));
 }
 
 char *test_default_item_destructor()
@@ -604,10 +608,310 @@ char *test_htable_make_with_specified_params()
 char *test_htable_make_calloc_fail()
 {
     htable_t *ht;
-    calloc_error_emulation_flag = 1;
+    allocation_error_emulation_after_nth_calls = 1;
     ht = htable_make(0, NULL);
     ASSERTION(ht == NULL, "Expected: NULL")
     DETECT_MEMORY_LEAK
+    return NULL;
+}
+
+char *test_htable_set_wrong_parameters()
+{
+    int res;
+    htable_t exp_ht, *act_ht;
+    act_ht = &tgst.ht;
+
+    memcpy(&exp_ht, act_ht, sizeof(htable_t));
+
+    htable_set(NULL, NULL, sizeof(htable_item_base_t));
+    res = memcmp(&exp_ht, act_ht, sizeof(htable_item_base_t*));
+    ASSERTION(res == 0, "Expected: Hash table was not changed!")
+
+    htable_set(act_ht, NULL, sizeof(htable_item_base_t));
+    res = memcmp(&exp_ht, act_ht, sizeof(htable_item_base_t*));
+    ASSERTION(res == 0, "Expected: Hash table was not changed!")
+
+    htable_item_base_t item1 = {(uint8_t*)NULL, 0};
+    htable_set(act_ht, &item1, sizeof(htable_item_base_t));
+    res = memcmp(&exp_ht, act_ht, sizeof(htable_item_base_t*));
+    ASSERTION(res == 0, "Expected: Hash table was not changed!")
+
+    htable_item_base_t item2 = {(uint8_t*)"KEY", 3};
+    htable_set(act_ht, &item2, 1);
+    res = memcmp(&exp_ht, act_ht, sizeof(htable_item_base_t*));
+    ASSERTION(res == 0, "Expected: Hash table was not changed!")
+    return NULL;
+}
+
+char *test_htable_set()
+{
+    htable_item_base_t item1 = {(uint8_t*)"KEY", 3};
+    htable_t *ht = &tgst.ht;
+    int res;
+
+    htable_set(ht, &item1, sizeof(htable_item_base_t));
+    ASSERTION(ht->items_count == 1, "Expected: Item was added to hash table")
+    ASSERTION(mem_allocated[0].mem == (uint8_t *)ht->items[0], "Expected: Memory allocated!")
+    ASSERTION(mem_allocated[0].size == sizeof(htable_item_base_t), "Expected: Memory allocated size is sizeof(htable_base_t)")
+    ASSERTION(mem_allocated[1].mem == (uint8_t *)ht->items[0]->key, "Expected: Memory allocated for key!")
+    ASSERTION(mem_allocated[1].size == 3, "Expected: Memory allocated size is 3!")
+
+    res = memcmp(ht->items[0]->key, item1.key, 3);
+    ASSERTION(res == 0, "Expected: Key equals!")
+    ASSERTION(ht->items[0]->key_len == item1.key_len, "Expected: Keys lengths equal!")
+    DETECT_BUFFER_UNDERFLOW
+    DETECT_BUFFER_OVERFLOW
+    return NULL;
+}
+
+char *test_htable_set_full()
+{
+    int res;
+    htable_item_base_t item1 = {(uint8_t*)"KEY", 3};
+    htable_t exp_ht, *act_ht = &tgst.ht;
+
+    act_ht->last_error = HTABLE_FULL;
+    memcpy(&exp_ht, act_ht, sizeof(htable_t));
+
+    htable_set(act_ht, &item1, sizeof(htable_item_base_t));
+    res = memcmp(&exp_ht, act_ht, sizeof(htable_item_base_t*));
+    ASSERTION(res == 0, "Expected: Hash table was not changed!")
+    return NULL;
+}
+
+char *test_htable_set_mem_fail_1()
+{
+    htable_item_base_t item1 = {(uint8_t*)"KEY", 3};
+    htable_t *ht = &tgst.ht;
+
+    allocation_error_emulation_after_nth_calls = 1;
+    htable_set(ht, &item1, sizeof(htable_item_base_t));
+
+    ASSERTION(ht->last_error == HTABLE_MEM_ERROR, "Expected: Mem error status!")
+    ASSERTION(ht->items_count == 0, "Expected: Item count not changed!")
+    DETECT_MEMORY_LEAK
+    return NULL;
+}
+
+char *test_htable_set_mem_fail_2()
+{
+    htable_item_base_t item1 = {(uint8_t*)"KEY", 3};
+    htable_t *ht = &tgst.ht;
+
+    allocation_error_emulation_flag = 1;
+    htable_set(ht, &item1, sizeof(htable_item_base_t));
+
+    ASSERTION(ht->last_error == HTABLE_MEM_ERROR, "Expected: Mem error status!")
+    ASSERTION(ht->items_count == 0, "Expected: Item count not changed!")
+    ASSERTION(allocated_next_idx == 0, "Expected: Memory was not allocated!")
+    return NULL;
+}
+
+char *test_htable_set_change_item()
+{
+    htable_item_base_t item1 = {(uint8_t*)"KEY", 3};
+    htable_t *ht = &tgst.ht;
+    ht->items[0] = &item1;
+    ht->items_count = 1;
+
+    htable_set(ht, &item1, sizeof(htable_item_base_t));
+    ASSERTION(ht->items_count == 1, "Expected: Item count not changed!")
+    ASSERTION(tgst.destructor_calls_count == 1, "Expected: Item destructor was called!")
+    ASSERTION(mem_allocated[0].mem == (uint8_t*)ht->items[0], "Expected: New memory allocated for item!")
+    ASSERTION(mem_allocated[0].size == sizeof(htable_item_base_t), "Expected: Size of New memory allocated!")
+    ASSERTION(mem_allocated[1].mem == (uint8_t*)ht->items[0]->key, "Expected: New memory allocated for item key!")
+    ASSERTION(mem_allocated[1].size == item1.key_len, "Expected: Size of New memory allocated for item key!")
+    DETECT_BUFFER_OVERFLOW
+    DETECT_BUFFER_UNDERFLOW
+    return NULL;
+}
+
+char *test_htable_set_expand()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_item_base_t item3 = {(uint8_t*)"ABCD_KEY", 8};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = marked_as_deleted;
+    ht->items[1] = &item1;
+    ht->items[2] = &item3;
+    ht->items[3] = &item2;
+    ht->items_count = 3;
+
+    htable_set(ht, &item1, sizeof(htable_item_base_t));
+    ASSERTION(ht->capacity == 8, "Expected: Capacity == 8")
+
+    return NULL;
+}
+
+char *test_htable_destroy_wrong_param()
+{
+    int res;
+    htable_t exp_ht, *act_ht;
+    act_ht = &tgst.ht;
+
+    memcpy(&exp_ht, act_ht, sizeof(htable_t));
+
+    htable_destroy(NULL);
+    ASSERTION(freed_next_idx == 0, "Expected: Memory was not freed!")
+
+    res = memcmp(&exp_ht, act_ht, sizeof(htable_item_base_t*));
+    ASSERTION(res == 0, "Expected: Hash table was not changed!")
+    return NULL;
+}
+
+char *test_htable_destroy()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_item_base_t item3 = {(uint8_t*)"ABCD_KEY", 8};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = marked_as_deleted;
+    ht->items[1] = &item1;
+    ht->items[2] = &item3;
+    ht->items[3] = &item2;
+    ht->items_count = 3;
+
+    htable_destroy(ht);
+    ASSERTION(tgst.destructor_calls_count == 3, "Expected: Destructor was called 3 times!")
+    ASSERTION(freed_next_idx == 8, "Expected: Memory was released 8 times!")
+    ASSERTION(mem_freed[0].mem == (uint8_t*)item1.key, "Expected: item1 key released!")
+    ASSERTION(mem_freed[1].mem == (uint8_t*)&item1, "Expected: item1 released!")
+    ASSERTION(mem_freed[2].mem == (uint8_t*)item3.key, "Expected: item3 key released!")
+    ASSERTION(mem_freed[3].mem == (uint8_t*)&item3, "Expected: item3 released!")
+    ASSERTION(mem_freed[4].mem == (uint8_t*)item2.key, "Expected: item2 key released!")
+    ASSERTION(mem_freed[5].mem == (uint8_t*)&item2, "Expected: item2 released!")
+    ASSERTION(mem_freed[6].mem == (uint8_t*)ht->items, "Expected: items released!")
+    ASSERTION(mem_freed[7].mem == (uint8_t*)ht, "Expected: htable released!")
+    return NULL;
+}
+
+int enum_callback(htable_item_base_t *item)
+{
+    tgst.enumerated[tgst.enum_callback_calls_count++] = item;
+    return 1;
+}
+
+int enum_callback_stop(htable_item_base_t *item)
+{
+    tgst.enumerated[tgst.enum_callback_calls_count++] = item;
+    return 0;
+}
+
+char *test_htable_enumerate_items_wrong_params()
+{
+    htable_enumerate_items(NULL, enum_callback);
+    ASSERTION(tgst.enum_callback_calls_count == 0, "Expected: Callback was not called!")
+    htable_enumerate_items(&tgst.ht, NULL);
+    ASSERTION(tgst.enum_callback_calls_count == 0, "Expected: Callback was not called!")
+    return NULL;
+}
+
+char *test_htable_enumerate_items()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = marked_as_deleted;
+    ht->items[1] = &item1;
+    ht->items[2] = marked_as_deleted;
+    ht->items[3] = &item2;
+    ht->items_count = 2;
+
+    htable_enumerate_items(ht, enum_callback);
+    ASSERTION(tgst.enum_callback_calls_count == 2, "Expected: Callback was called 2 times!")
+    ASSERTION(tgst.enumerated[0] == &item1, "Expected: item1 was enumerated!")
+    ASSERTION(tgst.enumerated[1] == &item2, "Expected: item2 was enumerated!")
+    return NULL;
+}
+
+char *test_htable_enumerate_items_stop()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = marked_as_deleted;
+    ht->items[1] = &item1;
+    ht->items[2] = marked_as_deleted;
+    ht->items[3] = &item2;
+    ht->items_count = 2;
+
+    htable_enumerate_items(ht, enum_callback_stop);
+    ASSERTION(tgst.enum_callback_calls_count == 1, "Expected: Callback was called 1 times!")
+    ASSERTION(tgst.enumerated[0] == &item1, "Expected: item1 was enumerated!")
+    return NULL;
+}
+
+char *test_htable_find_wrong_params()
+{
+    htable_t *ht = &tgst.ht;
+    htable_item_base_t item = {NULL, 0};
+    bool res;
+
+    res = htable_find(NULL, NULL, NULL);
+    ASSERTION(res == false, "Expected: Nothing found!")
+    res = htable_find(ht, NULL, NULL);
+    ASSERTION(res == false, "Expected: Nothing found!")
+    res = htable_find(ht, &item, NULL);
+    ASSERTION(res == false, "Expected: Nothing found!")
+    return NULL;
+}
+
+char *test_htable_find()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = marked_as_deleted;
+    ht->items[1] = &item1;
+    ht->items[2] = marked_as_deleted;
+    ht->items[3] = &item2;
+    ht->items_count = 2;
+
+    htable_item_base_t *out = NULL;
+    bool res = htable_find(ht, &item2, &out);
+    ASSERTION(res == true, "Expected: Item found!")
+    ASSERTION(out != NULL, "Expected: Out parameter is not NULL!")
+    ASSERTION(out->key == item2.key, "Expected: Founded keys matched!")
+    return NULL;
+}
+
+char *test_htable_find_no_out_item()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = marked_as_deleted;
+    ht->items[1] = &item1;
+    ht->items[2] = marked_as_deleted;
+    ht->items[3] = &item2;
+    ht->items_count = 2;
+
+    bool res = htable_find(ht, &item2, NULL);
+    ASSERTION(res == true, "Expected: Item found!")
+    return NULL;
+}
+
+char *test_htable_find_not_found()
+{
+    htable_item_base_t item1 = {(uint8_t*)"PT_KEY", 6};
+    htable_item_base_t item2 = {(uint8_t*)"ABC_KEY", 7};
+    htable_t *ht = &tgst.ht;
+
+    ht->items[0] = &item1;
+    ht->items[1] = marked_as_deleted;
+    ht->items[2] = &item2;
+    ht->items_count = 2;
+
+    htable_item_base_t item3 = {(uint8_t*)"HHH", 3};
+    bool res = htable_find(ht, &item3, NULL);
+    ASSERTION(res == false, "Expected: Item not found!")
     return NULL;
 }
 
@@ -634,7 +938,23 @@ int main(void)
         {"Test htable_make", test_htable_make},
         {"Test htable_make malloc fail", test_htable_make_malloc_fail},
         {"Test htable_make set hash function", test_htable_make_with_specified_params},
-        {"Test htable_make set calloc fail", test_htable_make_calloc_fail},
+        {"Test htable_make calloc fail", test_htable_make_calloc_fail},
+        {"Test htable_set wrong parameters", test_htable_set_wrong_parameters},
+        {"Test htable_set ", test_htable_set},
+        {"Test htable_set full ", test_htable_set_full},
+        {"Test htable_set memory fail 1", test_htable_set_mem_fail_1},
+        {"Test htable_set memory fail 2", test_htable_set_mem_fail_2},
+        {"Test htable_set change item", test_htable_set_change_item},
+        {"Test htable_set expand", test_htable_set_expand},
+        {"Test htable_destroy wrong parameters", test_htable_destroy_wrong_param},
+        {"Test htable_destroy", test_htable_destroy},
+        {"Test htable_enumerate_items wrong params", test_htable_enumerate_items_wrong_params},
+        {"Test htable_enumerate_items", test_htable_enumerate_items},
+        {"Test htable_enumerate_items stop", test_htable_enumerate_items_stop},
+        {"Test htable_find wrong params", test_htable_find_wrong_params},
+        {"Test htable_find ", test_htable_find},
+        {"Test htable_find no out_item ", test_htable_find_no_out_item},
+        {"Test htable_find not found item ", test_htable_find_not_found},
         {0, 0},
     };
 
