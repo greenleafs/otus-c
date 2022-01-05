@@ -686,7 +686,7 @@ char *test_htable_set()
     ASSERTION(mem_allocated[0].size == sizeof(htable_item_base_t), "Expected: Memory allocated size is sizeof(htable_base_t)")
     ASSERTION(mem_allocated[1].mem == (uint8_t *)ht->items[0]->key, "Expected: Memory allocated for key!")
     ASSERTION(mem_allocated[1].size == 3, "Expected: Memory allocated size is 3!")
-    ASSERTION(items_equal(ht->items[0], &item1), "Expected: Key equals!")
+    ASSERTION(items_equal(ht->items[0], &item1), "Expected: Items are equal!")
     DETECT_BUFFER_UNDERFLOW
     DETECT_BUFFER_OVERFLOW
     return NULL;

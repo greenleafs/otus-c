@@ -1,91 +1,119 @@
+#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "htable.h"
 
+void print_usage(const char *name)
+{
+    printf("Usage: %s textfile\n", name);
+}
+
+struct item
+{
+    htable_item_base_t base;
+    size_t val;
+};
+
 int print_items(htable_item_base_t *item)
 {
-    printf("Item key: %s\n", item->key);
+    struct item *p = (struct item*)item;
+    printf("KEY: %s VAL: %lu\n", p->base.key, p->val);
     return 1;
 }
 
 int main(int argc, char *argv[])
 {
-    char *keys[] = {
-        "FFFF", "Сидели две вороны", "Barbudos", "FFFF",
-        "АШМУ", "SIZ", "Eight", "Seven", "Bubago",
-        "Baranko", "Xeraxo", "Nidengo", "Mutengo", "Babango",
-        "Samoras", "Reliefo", "Machanga", "Sixtatos", "Indigos"
-    };
+    bool err_happened = false;
 
-    htable_t *ht =  htable_make(8, NULL);
+    if (argc < 2 || argc > 2)
+    {
+        print_usage(argv[0]);
+        return EXIT_SUCCESS;
+    }
+
+    int fd = open(argv[1], O_RDONLY);
+    if (-1 == fd)
+    {
+        perror("Opening input file");
+        return EXIT_FAILURE;
+    }
+
+    struct stat st;
+    int res = fstat(fd, &st);
+    if (-1 == res)
+    {
+        perror("Opening input file");
+        err_happened = true;
+        goto clean_file;        
+    }
+
+    char *file_content = mmap(NULL, st.st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (file_content == MAP_FAILED)
+    {
+        perror("Map file to memory");
+        err_happened = true;
+        goto clean_file;
+    }
+
+    bool found;
+    struct item item, *req_item;
+    htable_t *ht = htable_make(128, NULL);
     if (!ht)
     {
-        printf("hast table is not created!");
-        return 1;
+        perror("Can't create hash table");
+        err_happened = true;
+        goto clean_file;
     }
 
-    htable_item_base_t item;
-    size_t item_size = sizeof(htable_item_base_t);
-    for(size_t i = 0; i < sizeof(keys)/sizeof(char*); i++)
-    {
-        item.key = (uint8_t *)keys[i];
-        item.key_len = strlen((char*)item.key);
-        htable_set(ht, &item, item_size);
-    }
+    char *delimiters = " \n\t";
+    char *token = strtok(file_content, delimiters);
+    while (token) {
+        item.base.key = (uint8_t*)token;
+        item.base.key_len = strlen(token) + 1; // include zero-symbol
+        item.val = 1;
 
-    htable_item_base_t *out;
-    bool res;
-
-    item.key = (uint8_t *)"АШМУ";
-    item.key_len = strlen((char*)item.key);
-    res = htable_find(ht, &item, &out);
-    if (res)
-    {
-        printf("The key %s was found\n", item.key);
-    } else {
-        printf("The key %s was not found\n", item.key);
-    }
-
-    item.key = (uint8_t *)"Сидели две вороны";
-    item.key_len = strlen((char*)item.key);
-    res = htable_remove(ht, &item);
-    if (res)
-    {
-        printf("The key %s was found and removed\n", item.key);
-    } else {
-        printf("The key %s was not found\n", item.key);
-    }
-
-    item.key = (uint8_t *)"АШМУ";
-    item.key_len = strlen((char*)item.key);
-    res = htable_find(ht, &item, &out);
-    if (res)
-    {
-        printf("The key %s was found\n", item.key);
-    } else {
-        printf("The key %s was not found\n", item.key);
-    }
-
-    item_destructor_t destructor = htable_set_item_destructor(ht, NULL);
-    item.key = (uint8_t *)"Baranko";
-    item.key_len = strlen((char*)item.key);
-    htable_item_base_t *out_item = htable_pop(ht, &item);
-    if (out_item)
-    {
-        printf("Pop ok!");
-        destructor(out_item);
-
-        res = htable_find(ht, &item, &out);
-        if (res)
+        found = htable_find(ht, (htable_item_base_t*)&item, (htable_item_base_t**)&req_item);
+        if (htable_status(ht) != HTABLE_OK)
         {
-            printf("The key %s was found\n", item.key);
-        } else {
-            printf("The key %s was not found\n", item.key);
+            perror("Something wrong when htable_find was called");
+            err_happened = true;
+            goto clean_hash_table;
         }
+
+        if (found)
+        {
+            req_item->val++;
+        }
+        else
+        {
+            htable_set(ht, (htable_item_base_t*)&item, sizeof(struct item));
+            if (htable_status(ht) != HTABLE_OK)
+            {
+                perror("Something wrong when htable_set was called");
+                err_happened = true;
+                goto clean_hash_table;
+            }
+        }
+
+        token = strtok(NULL, delimiters);
     }
 
     htable_enumerate_items(ht, print_items);
+
+clean_hash_table:
     htable_destroy(ht);
-    return 0;
+
+clean_file:
+    close(fd);
+
+    if (err_happened)
+        return EXIT_FAILURE;
+    else
+        return EXIT_SUCCESS;
 }
