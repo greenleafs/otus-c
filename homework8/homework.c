@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
     res = htable_remove(ht, &item);
     if (res)
     {
-        printf("The key %s was found\n", item.key);
+        printf("The key %s was found and removed\n", item.key);
     } else {
         printf("The key %s was not found\n", item.key);
     }
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
     }
 
     item_destructor_t destructor = htable_set_item_destructor(ht, NULL);
-    item.key = "Baranko";
+    item.key = (uint8_t *)"Baranko";
     item.key_len = strlen((char*)item.key);
     htable_item_base_t *out_item = htable_pop(ht, &item);
     if (out_item)

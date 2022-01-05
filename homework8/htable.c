@@ -31,7 +31,7 @@ struct htable_t
 
 // We use address of this for marking items as deleted
 htable_item_base_t deleted__;
-htable_item_base_t *marked_as_deleted = &deleted__;
+htable_item_base_t * const marked_as_deleted = &deleted__;
 
 /**
  * Jenkins hash function. Used as default hash function.
@@ -57,8 +57,12 @@ static uint32_t jenkins_one_at_a_time_hash(const uint8_t *key, size_t key_len)
 
 static void default_item_destructor(htable_item_base_t *item)
 {
-    free(item->key);
-    free(item);
+    if (item)
+    {
+        if (item->key)
+            free(item->key);
+        free(item);
+    }
 }
 
 static bool compare_items_key(const htable_item_base_t *item_first, const htable_item_base_t *item_second)
@@ -105,6 +109,13 @@ static bool find(htable_t *ht, const htable_item_base_t *item, size_t *out_index
 {
     uint32_t hash = ht->hash_func(item->key, item->key_len);
     size_t index = hash % ht->capacity;
+
+    if (!ht->items_count)
+    {
+        *out_index = index;
+        return false;
+    }
+
     htable_item_base_t *candidate = ht->items[index];
 
     if (!candidate)
@@ -112,6 +123,11 @@ static bool find(htable_t *ht, const htable_item_base_t *item, size_t *out_index
         *out_index = index;
         return false;
     }
+
+    bool first_item_marked_as_deleted = false;
+    size_t index_of_first_item_marked_as_deleted = index;
+    if (candidate == marked_as_deleted)
+        first_item_marked_as_deleted = true;
 
     size_t stopper = index;
     while (candidate)
@@ -122,11 +138,13 @@ static bool find(htable_t *ht, const htable_item_base_t *item, size_t *out_index
             return true;
         }
 
-        candidate = ht->items[++index % ht->capacity];
-        SET_HTABLE_ERROR_AND_EXIT_WITH_VAL_IF(index % ht->capacity == stopper, ht, HTABLE_FULL, false)
+        index++;
+        index %= ht->capacity;
+        candidate = ht->items[index];
+        SET_HTABLE_ERROR_AND_EXIT_WITH_VAL_IF(index == stopper, ht, HTABLE_FULL, false)
     }
 
-    *out_index = index;
+    *out_index = (first_item_marked_as_deleted) ? index_of_first_item_marked_as_deleted: index;
     return false;
 }
 
