@@ -23,7 +23,7 @@ struct item
 int print_items(htable_item_base_t *item)
 {
     struct item *p = (struct item*)item;
-    printf("KEY: %s VAL: %lu\n", p->base.key, p->val);
+    printf("%s %lu\n", p->base.key, p->val);
     return 1;
 }
 
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
     bool found;
     struct item item, *req_item;
-    htable_t *ht = htable_make(128, NULL);
+    htable_t *ht = htable_make(512, NULL);
     if (!ht)
     {
         perror("Can't create hash table");
@@ -71,7 +71,8 @@ int main(int argc, char *argv[])
         goto clean_file;
     }
 
-    char *delimiters = " \n\t";
+//    char *delimiters = " /_~`'><|?.:!@#$%^&*)(,;-=+][}{\t\n\r\b\"\\";
+    char *delimiters = " \n";
     char *token = strtok(file_content, delimiters);
     while (token) {
         item.base.key = (uint8_t*)token;
