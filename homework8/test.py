@@ -44,9 +44,6 @@ class TestSimpleHomework8(unittest.TestCase):
         out, err = process.communicate()
         return out.decode('utf-8'), err.decode('utf-8'), process.returncode
 
-    def setUp(self):
-        self.fname = 'test_data.txt'
-
     @staticmethod
     def generate_file(fname, word_count=1000000):
         # Generate words and dump it to file
@@ -80,6 +77,21 @@ class TestSimpleHomework8(unittest.TestCase):
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_homework(self):
-        reference_words_set = self.count_words_from_file(self.fname)
-        actual_words_set = self.count_words_using_homework(self.fname)
+        fname = 'test_data.txt'
+        reference_words_set = self.count_words_from_file(fname)
+        actual_words_set = self.count_words_using_homework(fname)
+        self.assertTrue(reference_words_set == actual_words_set)
+
+    @unittest.skipUnless(is_homework_built(), skipMessage)
+    def test_homework_empty_file(self):
+        fname = 'test_data_empty.txt'
+        reference_words_set = self.count_words_from_file(fname)
+        actual_words_set = self.count_words_using_homework(fname)
+        self.assertTrue(reference_words_set == actual_words_set)
+
+    @unittest.skipUnless(is_homework_built(), skipMessage)
+    def test_homework_one_word_in_file(self):
+        fname = 'test_data1.txt'
+        reference_words_set = self.count_words_from_file(fname)
+        actual_words_set = self.count_words_using_homework(fname)
         self.assertTrue(reference_words_set == actual_words_set)

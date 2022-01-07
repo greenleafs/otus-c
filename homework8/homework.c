@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -23,7 +22,10 @@ struct item
 int print_items(htable_item_base_t *item)
 {
     struct item *p = (struct item*)item;
-    printf("%s %lu\n", p->base.key, p->val);
+    char buff[p->base.key_len + 1];
+
+    snprintf(buff, p->base.key_len + 1, "%s", p->base.key);
+    printf("%s %lu\n", buff, p->val);
     return 1;
 }
 
@@ -34,14 +36,15 @@ int main(int argc, char *argv[])
     if (argc < 2 || argc > 2)
     {
         print_usage(argv[0]);
-        return EXIT_SUCCESS;
+        goto quit;
     }
 
     int fd = open(argv[1], O_RDONLY);
     if (-1 == fd)
     {
         perror("Opening input file");
-        return EXIT_FAILURE;
+        err_happened = true;
+        goto quit;
     }
 
     struct stat st;
@@ -53,7 +56,10 @@ int main(int argc, char *argv[])
         goto clean_file;        
     }
 
-    char *file_content = mmap(NULL, st.st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (!st.st_size)
+        goto quit;
+
+    uint8_t *file_content = mmap(NULL, st.st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (file_content == MAP_FAILED)
     {
         perror("Map file to memory");
@@ -71,12 +77,28 @@ int main(int argc, char *argv[])
         goto clean_file;
     }
 
-//    char *delimiters = " /_~`'><|?.:!@#$%^&*)(,;-=+][}{\t\n\r\b\"\\";
-    char *delimiters = " \n";
-    char *token = strtok(file_content, delimiters);
-    while (token) {
-        item.base.key = (uint8_t*)token;
-        item.base.key_len = strlen(token) + 1; // include zero-symbol
+    int64_t index = 0;
+    uint8_t *p = file_content;
+    uint8_t *word;
+    size_t word_len;
+    while (index < st.st_size) {
+        while ((*p == ' ' || *p == '\n' || *p == '\t') && index < st.st_size)
+        {
+            p++; index++;
+        }
+
+        if (index >= st.st_size)
+            break;
+
+        word = p;
+        word_len = 0;
+        while ((*p != ' ' && *p != '\n' && *p != '\t') && index < st.st_size)
+        {
+            p++; index++; word_len++;
+        }
+
+        item.base.key = word;
+        item.base.key_len = word_len;
         item.val = 1;
 
         found = htable_find(ht, (htable_item_base_t*)&item, (htable_item_base_t**)&req_item);
@@ -101,18 +123,18 @@ int main(int argc, char *argv[])
                 goto clean_hash_table;
             }
         }
-
-        token = strtok(NULL, delimiters);
     }
 
     htable_enumerate_items(ht, print_items);
 
 clean_hash_table:
     htable_destroy(ht);
+    munmap(file_content, st.st_size);
 
 clean_file:
     close(fd);
 
+quit:
     if (err_happened)
         return EXIT_FAILURE;
     else
