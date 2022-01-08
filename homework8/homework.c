@@ -81,7 +81,8 @@ int main(int argc, char *argv[])
     uint8_t *p = file_content;
     uint8_t *word;
     size_t word_len;
-    while (index < st.st_size) {
+    while (index < st.st_size)
+    {
         while ((*p == ' ' || *p == '\n' || *p == '\t') && index < st.st_size)
         {
             p++; index++;
