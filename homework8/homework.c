@@ -22,10 +22,8 @@ struct item
 int print_items(htable_item_base_t *item)
 {
     struct item *p = (struct item*)item;
-    char buff[p->base.key_len + 1];
 
-    snprintf(buff, p->base.key_len + 1, "%s", p->base.key);
-    printf("%s %lu\n", buff, p->val);
+    printf("%.*s %lu\n", (int)p->base.key_len, p->base.key, p->val);
     return 1;
 }
 
