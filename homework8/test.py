@@ -9,7 +9,7 @@ skipMessage = "Nothing to test. Run 'make' before!"
 
 
 def is_homework_built():
-    return os.path.exists('homework')
+    return os.path.exists('homework8')
 
 
 def words(n):  # noqa
@@ -67,7 +67,7 @@ class TestSimpleHomework8(unittest.TestCase):
     @staticmethod
     def count_words_using_homework(fname):
         _words_set = set()
-        result, *_ = TestSimpleHomework8.run_homework(f'./homework {fname}')
+        result, *_ = TestSimpleHomework8.run_homework(f'./homework8 {fname}')
         for line in result.split('\n'):
             w_c = line.split(' ')
             if len(w_c) > 1:

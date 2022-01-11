@@ -1,12 +1,17 @@
 #include <stdio.h>
 
+#include <gst/gst.h>
+
 int main(int argc, char *argv[])
 {
-    printf("I'm ready!\n");
-    printf("Args passed: %d\n", argc);
-    for (int i = 0; i < argc; i++)
-    {
-        printf("Argument %d: %s\n", i, argv[i]);
-    }
+    GstElement *pipeline;
+    GstBus *bus;
+    GstMessage *msg;
+
+    /* Initialize GStreamer */
+    gst_init (&argc, &argv);
+
+
+
     return 0;
 }

@@ -27,7 +27,7 @@ if [ ! $? -eq 0 ]; then
 fi
 
 echo "Move template of Makefile to $HOMEWORK_DIR..."
-cp $SKEL_DIR/TemplMakefile $HOMEWORK_DIR/Makefile
+cp $SKEL_DIR/TemplMakefile $HOMEWORK_DIR/CMakeLists.txt
 if [ ! $? -eq 0 ]; then
     echo "Can't move template of Makefile to $HOMEWORK_DIR"
     exit 1

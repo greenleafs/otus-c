@@ -7,7 +7,7 @@ skipMessage = "Nothing to test. Run 'make' before!"
 
 
 def is_homework_built():
-    return os.path.exists('homework')
+    return os.path.exists('homework4')
 
 
 class Homework4TestCase(unittest.TestCase):
@@ -32,7 +32,7 @@ class Homework4TestCase(unittest.TestCase):
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_isnot_zipjpeg(self):
         file = 'test_files/non-zipjpeg.jpg'
-        out, err, ret_code = self.run_homework(f'./homework {file}')
+        out, err, ret_code = self.run_homework(f'./homework4 {file}')
         self.assertEqual(
             ret_code, 0,
             f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
@@ -42,7 +42,7 @@ class Homework4TestCase(unittest.TestCase):
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_is_zipjpeg(self):
         file = 'test_files/zipjpeg.jpg'
-        out, err, ret_code = self.run_homework(f'./homework {file}')
+        out, err, ret_code = self.run_homework(f'./homework4 {file}')
         self.assertEqual(
             ret_code, 0,
             f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
@@ -53,7 +53,7 @@ class Homework4TestCase(unittest.TestCase):
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_not_exist_file(self):
         file = 'test_files/not_exist.zip'
-        out, err, ret_code = self.run_homework(f'./homework {file}')
+        out, err, ret_code = self.run_homework(f'./homework4 {file}')
         self.assertEqual(
             ret_code, 0,
             f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'

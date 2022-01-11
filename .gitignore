@@ -3,4 +3,7 @@
 __pycache__
 .vscode
 .idea
-homework
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+Makefile

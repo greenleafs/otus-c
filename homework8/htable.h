@@ -100,7 +100,7 @@ bool htable_remove(htable_t *ht, const htable_item_base_t *item);
  *  \return  It returns true if key has been found in hash table or false if it isn't so.
  *
  *  \details You can specify NULL for out_item parameter if you  want just to check whether item is in hash table or not.
- *  Fields key, key_len, item_size of out_item structure must not be changed!!
+ *  Fields key, key_len of out_item structure must not be changed!!
  */
 bool htable_find(htable_t *ht, const htable_item_base_t *item, htable_item_base_t **out_item);
 
@@ -113,7 +113,7 @@ bool htable_find(htable_t *ht, const htable_item_base_t *item, htable_item_base_
  *
  * \details The callback function can return zero to stop enumeration.
  * In other cases it has to return non-zero value.
- * Fields key, key_len, item_size of out_item structure must not be changed!!
+ * Fields key, key_len of out_item structure must not be changed!!
  */
 void htable_enumerate_items(htable_t *ht, int (*callback)(htable_item_base_t *item));
 

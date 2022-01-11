@@ -8,7 +8,7 @@ skipMessage = "Nothing to test. Run 'make' before!"
 
 
 def is_homework_built():
-    return os.path.exists('homework')
+    return os.path.exists('homework3')
 
 
 class TestSimpleHomework3(unittest.TestCase):
@@ -38,7 +38,7 @@ class TestSimpleHomework3(unittest.TestCase):
         )
 
         out, err, ret_code = self.run_homework(
-            './homework -f cp1251',
+            './homework3 -f cp1251',
             to_stdin_bytes=text
         )
 
@@ -57,7 +57,7 @@ class TestSimpleHomework3(unittest.TestCase):
         )
 
         out, err, ret_code = self.run_homework(
-            './homework -f koi8-r',
+            './homework3 -f koi8-r',
             to_stdin_bytes=text
         )
 
@@ -76,7 +76,7 @@ class TestSimpleHomework3(unittest.TestCase):
         )
 
         out, err, ret_code = self.run_homework(
-            './homework -f iso-8859-5',
+            './homework3 -f iso-8859-5',
             to_stdin_bytes=text
         )
 
@@ -88,7 +88,7 @@ class TestSimpleHomework3(unittest.TestCase):
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_supported_encodings_list(self):
-        out, err, ret_code = self.run_homework('./homework -l')
+        out, err, ret_code = self.run_homework('./homework3 -l')
         self.assertEqual(
             ret_code, 0,
             f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
@@ -105,7 +105,7 @@ class TestSimpleHomework3(unittest.TestCase):
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_help_message(self):
-        out, err, ret_code = self.run_homework('./homework -h')
+        out, err, ret_code = self.run_homework('./homework3 -h')
         self.assertEqual(
             ret_code, 0,
             f'Return code is not zero!\nout:\n{out}\nerr:\n{err}'
@@ -113,7 +113,7 @@ class TestSimpleHomework3(unittest.TestCase):
 
         waiting_for_result = (
             'Convert text from some character encoding to utf-8'
-            'Usage: ./homework -f from-encoding [-i input file] [-o output file]'  # noqa: E501
+            'Usage: ./homework3 -f from-encoding [-i input file] [-o output file]'  # noqa: E501
             '\t-f, --from-code=from-encoding - Use from-encoding for input characters.'  # noqa: E501
             '\t-i, --input-file=file - Input file or stdin if not specified.'
             '\t-o, --output-file=file - Output file or stdout if not specified.'
@@ -125,7 +125,7 @@ class TestSimpleHomework3(unittest.TestCase):
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_wrong_encoding(self):
-        out, _, ret_code = self.run_homework('./homework -f cp866')
+        out, _, ret_code = self.run_homework('./homework3 -f cp866')
         self.assertEqual(ret_code, 1)
 
         waiting_for_result = (
@@ -140,13 +140,13 @@ class TestSimpleHomework3(unittest.TestCase):
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_encoding_option_not_specified(self):
-        out, _, ret_code = self.run_homework('./homework')
+        out, _, ret_code = self.run_homework('./homework3')
         self.assertEqual(ret_code, 1)
         self.assertIn('Option is required -- \'f\'', out)
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
     def test_wrong_inputfile(self):
-        out, _, ret_code = self.run_homework('./homework -f cp1251 -i ddd')
+        out, _, ret_code = self.run_homework('./homework3 -f cp1251 -i ddd')
         self.assertEqual(ret_code, 1)
 
     @unittest.skipUnless(is_homework_built(), skipMessage)
@@ -162,7 +162,7 @@ class TestSimpleHomework3(unittest.TestCase):
             inf.write(text)
             inf.flush()
             out, err, ret_code = self.run_homework(
-                f'./homework -f cp1251 -i {inf.name}'
+                f'./homework3 -f cp1251 -i {inf.name}'
             )
             self.assertEqual(
                 ret_code, 0,
@@ -180,7 +180,7 @@ class TestSimpleHomework3(unittest.TestCase):
         )
         with tempfile.NamedTemporaryFile(mode='rb') as outf:
             out, err, ret_code = self.run_homework(
-                f'./homework -f cp1251 -o {outf.name}',
+                f'./homework3 -f cp1251 -o {outf.name}',
                 to_stdin_bytes=text
             )
             self.assertEqual(
@@ -203,7 +203,7 @@ class TestSimpleHomework3(unittest.TestCase):
             inf.flush()
             with tempfile.NamedTemporaryFile(mode='rb') as outf:
                 out, err, ret_code = self.run_homework(
-                    f'./homework -f cp1251 -i {inf.name} -o {outf.name}',
+                    f'./homework3 -f cp1251 -i {inf.name} -o {outf.name}',
                 )
                 self.assertEqual(
                     ret_code, 0,
